@@ -1,0 +1,23 @@
+version: "2"
+
+run:
+  timeout: 3m
+
+linters:
+  default: standard
+  enable:
+    - govet
+    - staticcheck
+    - errcheck
+    - ineffassign
+    - unused
+    - misspell
+    - gocyclo
+  settings:
+    gocyclo:
+      min-complexity: 15
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
