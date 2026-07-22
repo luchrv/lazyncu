@@ -4,7 +4,7 @@
 TBD - created by archiving change add-ncu-tui-dashboard. Update Purpose after archive.
 ## Requirements
 ### Requirement: Configuration is persisted as a TOML file
-The system SHALL persist user configuration in a TOML file located at `$XDG_CONFIG_HOME/ncu-tui/config.toml`, falling back to `~/.config/ncu-tui/config.toml` when `XDG_CONFIG_HOME` is unset.
+The system SHALL persist user configuration in a TOML file located at `$XDG_CONFIG_HOME/lazyncu/config.toml`, falling back to `~/.config/lazyncu/config.toml` when `XDG_CONFIG_HOME` is unset. A config directory left over from the application's previous name (`ncu-tui`) SHALL NOT be read or migrated.
 
 #### Scenario: First launch with no config file
 - **WHEN** the application starts and no config file exists
@@ -17,6 +17,10 @@ The system SHALL persist user configuration in a TOML file located at `$XDG_CONF
 #### Scenario: Malformed config file
 - **WHEN** the config file exists but contains invalid TOML
 - **THEN** the application reports a clear error message identifying the file path and does not overwrite the file
+
+#### Scenario: Old config directory is ignored
+- **WHEN** the application starts with a legacy `~/.config/ncu-tui/config.toml` present and no `~/.config/lazyncu/config.toml`
+- **THEN** a fresh empty config is created under `lazyncu` and the legacy file is neither read nor modified
 
 ### Requirement: User can register project paths
 The system SHALL allow the user to add a filesystem path to the registered paths list, expanding a leading `~` to the user's home directory, and persist the change immediately.
