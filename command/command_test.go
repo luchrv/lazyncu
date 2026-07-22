@@ -3,8 +3,8 @@ package command
 import (
 	"testing"
 
-	"github.com/luchrv/ncu-tui/detect"
-	"github.com/luchrv/ncu-tui/scanner"
+	"github.com/luchrv/lazyncu/detect"
+	"github.com/luchrv/lazyncu/scanner"
 )
 
 func TestGlobalUpdate(t *testing.T) {

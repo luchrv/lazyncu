@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/luchrv/ncu-tui/detect"
-	"github.com/luchrv/ncu-tui/semver"
+	"github.com/luchrv/lazyncu/detect"
+	"github.com/luchrv/lazyncu/semver"
 )
 
 // fakeRunner replies with canned responses keyed by "name arg1 arg2 ...".

@@ -17,7 +17,9 @@ import (
 const DefaultTimeoutMS = 30000
 
 const (
-	appDirName     = "ncu-tui"
+	// appDirName is the config directory name. The app was renamed from
+	// ncu-tui; a leftover ~/.config/ncu-tui/ is deliberately not migrated.
+	appDirName     = "lazyncu"
 	configFileName = "config.toml"
 	dirPerm        = 0o755
 	filePerm       = 0o644
@@ -35,8 +37,8 @@ type Config struct {
 	Paths     []Path `toml:"paths,omitempty"`
 }
 
-// FilePath resolves the config file location: $XDG_CONFIG_HOME/ncu-tui/config.toml,
-// falling back to ~/.config/ncu-tui/config.toml.
+// FilePath resolves the config file location: $XDG_CONFIG_HOME/lazyncu/config.toml,
+// falling back to ~/.config/lazyncu/config.toml.
 func FilePath() (string, error) {
 	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
 		return filepath.Join(xdg, appDirName, configFileName), nil

@@ -5,8 +5,8 @@ package command
 import (
 	"strings"
 
-	"github.com/luchrv/ncu-tui/detect"
-	"github.com/luchrv/ncu-tui/scanner"
+	"github.com/luchrv/lazyncu/detect"
+	"github.com/luchrv/lazyncu/scanner"
 )
 
 // GlobalUpdate builds `npm install -g pkg@ver ...` from global scan results.

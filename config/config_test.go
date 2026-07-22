@@ -18,9 +18,45 @@ func TestFilePathUsesXDGConfigHome(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FilePath() error = %v", err)
 	}
-	want := filepath.Join("/custom/xdg", "ncu-tui", "config.toml")
+	want := filepath.Join("/custom/xdg", "lazyncu", "config.toml")
 	if got != want {
 		t.Errorf("FilePath() = %q, want %q", got, want)
+	}
+}
+
+func TestLegacyConfigDirIsIgnored(t *testing.T) {
+	// Arrange: a legacy ncu-tui config exists, no lazyncu config
+	xdg := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+	legacy := filepath.Join(xdg, "ncu-tui", "config.toml")
+	legacyBody := "timeout_ms = 60000\n\n[[paths]]\npath = '/old/project'\n"
+	if err := os.MkdirAll(filepath.Dir(legacy), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(legacy, []byte(legacyBody), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Act
+	path, err := FilePath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(path)
+
+	// Assert: fresh empty config under lazyncu, legacy neither read nor modified
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if len(cfg.Paths) != 0 || cfg.TimeoutMS != DefaultTimeoutMS {
+		t.Errorf("legacy config leaked into fresh one: %+v", cfg)
+	}
+	if _, statErr := os.Stat(filepath.Join(xdg, "lazyncu", "config.toml")); statErr != nil {
+		t.Errorf("fresh lazyncu config not created: %v", statErr)
+	}
+	after, _ := os.ReadFile(legacy)
+	if string(after) != legacyBody {
+		t.Error("legacy config file was modified; it must be left untouched")
 	}
 }
 
@@ -39,7 +75,7 @@ func TestFilePathFallsBackToHomeConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FilePath() error = %v", err)
 	}
-	want := filepath.Join(home, ".config", "ncu-tui", "config.toml")
+	want := filepath.Join(home, ".config", "lazyncu", "config.toml")
 	if got != want {
 		t.Errorf("FilePath() = %q, want %q", got, want)
 	}

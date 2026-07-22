@@ -1,4 +1,4 @@
-# ncu-tui
+# lazyncu
 
 A read-only terminal dashboard for [npm-check-updates](https://github.com/raineorshine/npm-check-updates). It answers one question at a glance: **which of my projects need updates, and how urgent are they?**
 
@@ -17,19 +17,19 @@ A read-only terminal dashboard for [npm-check-updates](https://github.com/raineo
 ## Install
 
 ```sh
-go install github.com/luchrv/ncu-tui@latest
+go install github.com/luchrv/lazyncu@latest
 ```
 
 Or from source:
 
 ```sh
-git clone https://github.com/luchrv/ncu-tui && cd ncu-tui && go build
+git clone https://github.com/luchrv/lazyncu && cd lazyncu && go build
 ```
 
 ## Usage
 
 ```sh
-ncu-tui
+lazyncu
 ```
 
 All sources scan in parallel; results stream in as each finishes. Select a source or project in the left panel to see its packages, toggle the vulnerability view, and copy the suggested command.
@@ -61,7 +61,9 @@ All sources scan in parallel; results stream in as each finishes. Select a sourc
 
 ## Configuration
 
-`$XDG_CONFIG_HOME/ncu-tui/config.toml` (default `~/.config/ncu-tui/config.toml`), created on first launch. Manage paths from the UI or edit by hand:
+`$XDG_CONFIG_HOME/lazyncu/config.toml` (default `~/.config/lazyncu/config.toml`), created on first launch. Manage paths from the UI or edit by hand:
+
+> **Renamed from ncu-tui:** an existing `~/.config/ncu-tui/` is ignored — no migration. Re-add your paths with `a` (or copy the old `config.toml` into the new directory yourself).
 
 ```toml
 timeout_ms = 30000   # per-command timeout (default 30000)

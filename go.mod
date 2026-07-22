@@ -1,4 +1,4 @@
-module github.com/luchrv/ncu-tui
+module github.com/luchrv/lazyncu
 
 go 1.26.5
 

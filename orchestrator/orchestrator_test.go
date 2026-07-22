@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/luchrv/ncu-tui/audit"
-	"github.com/luchrv/ncu-tui/detect"
-	"github.com/luchrv/ncu-tui/scanner"
+	"github.com/luchrv/lazyncu/audit"
+	"github.com/luchrv/lazyncu/detect"
+	"github.com/luchrv/lazyncu/scanner"
 )
 
 // fakeScanner lets each source block on a gate channel to control ordering.

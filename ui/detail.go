@@ -6,10 +6,10 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 
-	"github.com/luchrv/ncu-tui/audit"
-	"github.com/luchrv/ncu-tui/command"
-	"github.com/luchrv/ncu-tui/orchestrator"
-	"github.com/luchrv/ncu-tui/semver"
+	"github.com/luchrv/lazyncu/audit"
+	"github.com/luchrv/lazyncu/command"
+	"github.com/luchrv/lazyncu/orchestrator"
+	"github.com/luchrv/lazyncu/semver"
 )
 
 const chainSeparator = " ← "

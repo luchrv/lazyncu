@@ -8,8 +8,8 @@ import (
 	"encoding/json"
 	"sort"
 
-	"github.com/luchrv/ncu-tui/detect"
-	"github.com/luchrv/ncu-tui/scanner"
+	"github.com/luchrv/lazyncu/detect"
+	"github.com/luchrv/lazyncu/scanner"
 )
 
 // MaxChainHops bounds the dependency chain length (package names shown);

@@ -5,8 +5,8 @@ package scanner
 import (
 	"context"
 
-	"github.com/luchrv/ncu-tui/detect"
-	"github.com/luchrv/ncu-tui/semver"
+	"github.com/luchrv/lazyncu/detect"
+	"github.com/luchrv/lazyncu/semver"
 )
 
 // Runner executes an external command in dir and returns its stdout. It is

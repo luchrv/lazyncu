@@ -7,9 +7,9 @@ import (
 	"context"
 	"sync"
 
-	"github.com/luchrv/ncu-tui/audit"
-	"github.com/luchrv/ncu-tui/detect"
-	"github.com/luchrv/ncu-tui/scanner"
+	"github.com/luchrv/lazyncu/audit"
+	"github.com/luchrv/lazyncu/detect"
+	"github.com/luchrv/lazyncu/scanner"
 )
 
 // SourceGlobal identifies the global-packages source in events.

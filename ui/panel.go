@@ -6,10 +6,10 @@ import (
 
 	"github.com/rivo/tview"
 
-	"github.com/luchrv/ncu-tui/audit"
-	"github.com/luchrv/ncu-tui/orchestrator"
-	"github.com/luchrv/ncu-tui/scanner"
-	"github.com/luchrv/ncu-tui/semver"
+	"github.com/luchrv/lazyncu/audit"
+	"github.com/luchrv/lazyncu/orchestrator"
+	"github.com/luchrv/lazyncu/scanner"
+	"github.com/luchrv/lazyncu/semver"
 )
 
 // refreshTree rebuilds the sources panel from current state, preserving the

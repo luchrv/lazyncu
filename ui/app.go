@@ -9,8 +9,8 @@ import (
 
 	"github.com/rivo/tview"
 
-	"github.com/luchrv/ncu-tui/config"
-	"github.com/luchrv/ncu-tui/orchestrator"
+	"github.com/luchrv/lazyncu/config"
+	"github.com/luchrv/lazyncu/orchestrator"
 )
 
 // sourceState tracks one source's lifecycle in the panel.

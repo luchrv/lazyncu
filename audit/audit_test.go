@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/luchrv/ncu-tui/detect"
+	"github.com/luchrv/lazyncu/detect"
 )
 
 // fakeRunner mirrors the scanner test double: canned responses per command.

@@ -32,7 +32,7 @@ go.work.sum
 # .vscode/
 
 # Compiled binary
-/ncu-tui
+/lazyncu
 
 # Local Claude settings
 .claude/settings.local.json

@@ -5,8 +5,8 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 
-	"github.com/luchrv/ncu-tui/config"
-	"github.com/luchrv/ncu-tui/orchestrator"
+	"github.com/luchrv/lazyncu/config"
+	"github.com/luchrv/lazyncu/orchestrator"
 )
 
 // handleKey implements the global keybindings. It steps aside whenever a

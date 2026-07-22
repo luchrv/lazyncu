@@ -1,4 +1,4 @@
-// Command ncu-tui is a read-only terminal dashboard for npm-check-updates.
+// Command lazyncu is a read-only terminal dashboard for npm-check-updates.
 package main
 
 import (
@@ -9,16 +9,16 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/luchrv/ncu-tui/audit"
-	"github.com/luchrv/ncu-tui/config"
-	"github.com/luchrv/ncu-tui/detect"
-	"github.com/luchrv/ncu-tui/scanner"
-	"github.com/luchrv/ncu-tui/ui"
+	"github.com/luchrv/lazyncu/audit"
+	"github.com/luchrv/lazyncu/config"
+	"github.com/luchrv/lazyncu/detect"
+	"github.com/luchrv/lazyncu/scanner"
+	"github.com/luchrv/lazyncu/ui"
 )
 
 func main() {
 	if err := run(); err != nil {
-		fmt.Fprintln(os.Stderr, "ncu-tui:", err)
+		fmt.Fprintln(os.Stderr, "lazyncu:", err)
 		os.Exit(1)
 	}
 }

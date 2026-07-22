@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/luchrv/ncu-tui/detect"
-	"github.com/luchrv/ncu-tui/semver"
+	"github.com/luchrv/lazyncu/detect"
+	"github.com/luchrv/lazyncu/semver"
 )
 
 // MinNcuMajor is the minimum supported major version of npm-check-updates.
