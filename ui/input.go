@@ -15,6 +15,10 @@ func (a *App) handleKey(ev *tcell.EventKey) *tcell.EventKey {
 	if _, editing := a.tv.GetFocus().(*tview.InputField); editing {
 		return ev
 	}
+	if ev.Key() == tcell.KeyEscape && a.pages.HasPage(pageAbout) {
+		a.closeAbout()
+		return nil
+	}
 	switch ev.Rune() {
 	case 'q':
 		a.tv.Stop()
@@ -31,6 +35,9 @@ func (a *App) handleKey(ev *tcell.EventKey) *tcell.EventKey {
 		return nil
 	case 'm':
 		a.toggleMessages()
+		return nil
+	case 'h':
+		a.toggleAbout()
 		return nil
 	case 'a':
 		a.openAddPath()

@@ -16,6 +16,17 @@ A read-only terminal dashboard for [npm-check-updates](https://github.com/raineo
 
 ## Install
 
+Homebrew (macOS/Linux):
+
+```sh
+brew install luchrv/tap/lazyncu
+```
+
+Prebuilt binaries for linux/macOS/windows (amd64/arm64) are on the
+[releases page](https://github.com/luchrv/lazyncu/releases).
+
+With Go:
+
 ```sh
 go install github.com/luchrv/lazyncu@latest
 ```
@@ -23,7 +34,7 @@ go install github.com/luchrv/lazyncu@latest
 Or from source:
 
 ```sh
-git clone https://github.com/luchrv/lazyncu && cd lazyncu && go build
+git clone https://github.com/luchrv/lazyncu && cd lazyncu && make build
 ```
 
 ## Usage
@@ -31,6 +42,8 @@ git clone https://github.com/luchrv/lazyncu && cd lazyncu && go build
 ```sh
 lazyncu
 ```
+
+`lazyncu --version` prints the version, commit, and build date.
 
 All sources scan in parallel; results stream in as each finishes. Select a source or project in the left panel to see its packages, toggle the vulnerability view, and copy the suggested command.
 
@@ -46,6 +59,7 @@ All sources scan in parallel; results stream in as each finishes. Select a sourc
 | `d` | Remove the selected path |
 | `Enter` | Collapse/expand the selected source's project list |
 | `m` | Hide/show status messages (bottom left) |
+| `h` | About (version, commit, build date) — close with `Esc` or `h` |
 | `↑↓` | Navigate sources and projects |
 
 ### Suggested commands (shown, never executed)
@@ -92,8 +106,13 @@ How a path is scanned is re-detected on every launch:
 ## Development
 
 ```sh
-make check   # gofmt + go vet + race tests + coverage
+make check          # gofmt + go vet + race tests + coverage
+make build          # binary with version metadata injected via ldflags
+make release-check  # dry-run the goreleaser pipeline locally (needs goreleaser)
 ```
+
+Releases are automated: pushing a `v*` tag runs goreleaser via GitHub Actions.
+See [docs/RELEASING.md](docs/RELEASING.md).
 
 Business logic lives in pure, exec-injected packages (`config`, `detect`, `scanner`, `semver`, `command`, `audit`, `orchestrator`); the `ui` package is a thin tview layer where every async widget update passes through a single `QueueUpdateDraw` choke point.
 

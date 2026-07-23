@@ -34,5 +34,8 @@ go.work.sum
 # Compiled binary
 /lazyncu
 
+# goreleaser output
+/dist/
+
 # Local Claude settings
 .claude/settings.local.json

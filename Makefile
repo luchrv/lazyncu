@@ -1,11 +1,22 @@
 GO      ?= go
 PKGS    := ./...
-PURE    := ./config/... ./detect/... ./scanner/... ./semver/... ./command/... ./audit/...
+PURE    := ./config/... ./detect/... ./scanner/... ./semver/... ./command/... ./audit/... ./version/...
 
-.PHONY: build test race cover vet fmt lint check
+VERSION := $(shell git describe --tags --always --dirty)
+COMMIT  := $(shell git rev-parse --short HEAD)
+DATE    := $(shell date -u +%FT%TZ)
+LDFLAGS := -X github.com/luchrv/lazyncu/version.version=$(VERSION) \
+           -X github.com/luchrv/lazyncu/version.commit=$(COMMIT) \
+           -X github.com/luchrv/lazyncu/version.date=$(DATE)
+
+.PHONY: build test race cover vet fmt lint check release-check
 
 build:
-	$(GO) build $(PKGS)
+	$(GO) build -ldflags "$(LDFLAGS)" -o lazyncu .
+
+release-check:
+	goreleaser check
+	goreleaser release --snapshot --clean
 
 test:
 	$(GO) test $(PKGS)

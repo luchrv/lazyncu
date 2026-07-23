@@ -14,13 +14,25 @@ import (
 	"github.com/luchrv/lazyncu/detect"
 	"github.com/luchrv/lazyncu/scanner"
 	"github.com/luchrv/lazyncu/ui"
+	"github.com/luchrv/lazyncu/version"
 )
 
 func main() {
+	// Version must print even with a broken config or missing ncu, so it
+	// runs before config load and preflight.
+	if wantsVersion(os.Args) {
+		fmt.Println(version.Get())
+		return
+	}
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, "lazyncu:", err)
 		os.Exit(1)
 	}
+}
+
+// wantsVersion reports whether the first CLI argument requests the version.
+func wantsVersion(args []string) bool {
+	return len(args) > 1 && (args[1] == "--version" || args[1] == "-version")
 }
 
 func run() error {

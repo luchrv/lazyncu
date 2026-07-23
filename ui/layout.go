@@ -9,8 +9,8 @@ const (
 	pageAddPath = "add-path"
 	// statusHelp uses [yellow]…[-] tags: bare key letters like "[q]" would be
 	// swallowed as color tags by tview's dynamic-colors parser.
-	statusHelp  = "[yellow]q[-] quit  [yellow]c[-] copy cmd  [yellow]v[-] vulns  [yellow]r[-] rescan  [yellow]a[-] add path  [yellow]d[-] del path  [yellow]↵[-] fold  [yellow]m[-] msgs"
-	helpWidth   = 86
+	statusHelp  = "[yellow]q[-] quit  [yellow]c[-] copy cmd  [yellow]v[-] vulns  [yellow]r[-] rescan  [yellow]a[-] add path  [yellow]d[-] del path  [yellow]↵[-] fold  [yellow]m[-] msgs  [yellow]h[-] about"
+	helpWidth   = 95
 	cmdBarRows  = 4
 	modalWidth  = 60
 	modalHeight = 3

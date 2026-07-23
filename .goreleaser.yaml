@@ -1,0 +1,80 @@
+version: 2
+
+project_name: lazyncu
+
+# A GITLAB_TOKEN in the local environment would otherwise win token
+# auto-detection and render gitlab.com URLs everywhere.
+force_token: github
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    main: .
+    ldflags:
+      - -s -w
+      - -X github.com/luchrv/lazyncu/version.version=v{{ .Version }}
+      - -X github.com/luchrv/lazyncu/version.commit={{ .ShortCommit }}
+      - -X github.com/luchrv/lazyncu/version.date={{ .Date }}
+
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: checksums.txt
+
+# Explicit target: a GITLAB_TOKEN in the local environment would otherwise
+# make goreleaser render gitlab.com URLs.
+release:
+  github:
+    owner: luchrv
+    name: lazyncu
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  use: github
+  sort: asc
+  groups:
+    - title: Features
+      regexp: '^feat(\(.*\))?!?:'
+      order: 0
+    - title: Bug fixes
+      regexp: '^fix(\(.*\))?!?:'
+      order: 1
+    - title: Others
+      order: 999
+  filters:
+    exclude:
+      - "^chore"
+      - "^docs"
+      - "^test"
+      - "^ci"
+
+homebrew_casks:
+  - name: lazyncu
+    repository:
+      owner: luchrv
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    homepage: https://github.com/luchrv/lazyncu
+    description: Read-only terminal dashboard for npm-check-updates
+    # Unsigned binary: strip the quarantine flag so Gatekeeper lets it run.
+    hooks:
+      post:
+        install: |
+          if system_command("/usr/bin/xattr", args: ["-h"]).exit_status == 0
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/lazyncu"]
+          end
