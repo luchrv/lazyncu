@@ -28,5 +28,5 @@
 
 ## 5. Verification & ship
 
-- [ ] 5.1 `make check` green; `make demos` idempotent (second run works)
-- [ ] 5.2 Commit + push; verify README renders correctly on GitHub (badges live, GIFs play)
+- [x] 5.1 `make check` green; `make demos` idempotent (second run works)
+- [x] 5.2 Commit + push; verify README renders correctly on GitHub (badges live, GIFs play)
