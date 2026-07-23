@@ -1,0 +1,13 @@
+{
+  "name": "demo-tools",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Synthetic fixture for lazyncu demo recordings — intentionally outdated dependencies",
+  "dependencies": {
+    "semver": "7.3.5"
+  },
+  "devDependencies": {
+    "prettier": "2.8.0",
+    "typescript": "4.9.3"
+  }
+}

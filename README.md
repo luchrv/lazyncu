@@ -1,6 +1,14 @@
 # lazyncu
 
+[![Release](https://img.shields.io/github/v/release/luchrv/lazyncu)](https://github.com/luchrv/lazyncu/releases/latest)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/luchrv/lazyncu)](go.mod)
+[![License](https://img.shields.io/github/license/luchrv/lazyncu)](LICENSE)
+[![Downloads](https://img.shields.io/github/downloads/luchrv/lazyncu/total)](https://github.com/luchrv/lazyncu/releases)
+[![Homebrew](https://img.shields.io/badge/homebrew-luchrv%2Ftap-orange)](https://github.com/luchrv/homebrew-tap)
+
 A read-only terminal dashboard for [npm-check-updates](https://github.com/raineorshine/npm-check-updates). It answers one question at a glance: **which of my projects need updates, and how urgent are they?**
+
+![lazyncu demo](assets/demo/hero.gif)
 
 - Scans **global packages** (`ncu -g`) and every **registered path** in parallel on launch.
 - Auto-detects what each path is — single project, monorepo, or folder of projects — and picks `ncu` or `ncu --deep` accordingly. Zero per-path configuration.
@@ -75,7 +83,9 @@ All sources scan in parallel; results stream in as each finishes. Select a sourc
 
 ## Configuration
 
-`$XDG_CONFIG_HOME/lazyncu/config.toml` (default `~/.config/lazyncu/config.toml`), created on first launch. Manage paths from the UI or edit by hand:
+`$XDG_CONFIG_HOME/lazyncu/config.toml` (default `~/.config/lazyncu/config.toml`), created on first launch. Manage paths from the UI (`a` registers a path, persists it, and scans it immediately) or edit by hand:
+
+![add path demo](assets/demo/add-path.gif)
 
 > **Renamed from ncu-tui:** an existing `~/.config/ncu-tui/` is ignored — no migration. Re-add your paths with `a` (or copy the old `config.toml` into the new directory yourself).
 
@@ -98,6 +108,10 @@ How a path is scanned is re-detected on every launch:
 | Plain `package.json` | `ncu` |
 
 ## Audit coverage notes
+
+Press `v` on a project to see its vulnerabilities: severity, affected range, whether a fix exists, and the dependency chain that drags each one in.
+
+![vulnerability view demo](assets/demo/vulns.gif)
 
 - **Global packages are not audited** — `npm audit` requires a lockfile and does not support global installs. The UI shows "audit n/a", which is distinct from "0 vulns".
 - **Yarn projects are not audited** in v1 (yarn classic emits a different audit format). Version scanning works normally.

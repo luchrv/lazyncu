@@ -9,7 +9,7 @@ LDFLAGS := -X github.com/luchrv/lazyncu/version.version=$(VERSION) \
            -X github.com/luchrv/lazyncu/version.commit=$(COMMIT) \
            -X github.com/luchrv/lazyncu/version.date=$(DATE)
 
-.PHONY: build test race cover vet fmt lint check release-check
+.PHONY: build test race cover vet fmt lint check release-check demos
 
 build:
 	$(GO) build -ldflags "$(LDFLAGS)" -o lazyncu .
@@ -17,6 +17,13 @@ build:
 release-check:
 	goreleaser check
 	goreleaser release --snapshot --clean
+
+demos:
+	@command -v vhs >/dev/null 2>&1 || { echo "vhs not found — install with: brew install vhs"; exit 1; }
+	./assets/tapes/setup-demo-env.sh
+	vhs assets/tapes/hero.tape
+	vhs assets/tapes/vulns.tape
+	vhs assets/tapes/add-path.tape
 
 test:
 	$(GO) test $(PKGS)

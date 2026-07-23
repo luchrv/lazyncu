@@ -1,0 +1,16 @@
+{
+  "name": "demo-webapp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Synthetic fixture for lazyncu demo recordings — intentionally outdated dependencies",
+  "dependencies": {
+    "axios": "0.21.1",
+    "chalk": "4.1.0",
+    "express": "4.16.0",
+    "lodash": "4.17.15"
+  },
+  "devDependencies": {
+    "commander": "9.0.0",
+    "debug": "4.4.1"
+  }
+}
