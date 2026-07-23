@@ -33,5 +33,5 @@
 
 - [x] 6.1 Run `make check` (fmt, vet, race, cover ≥80% pure packages) — all green
 - [x] 6.2 ⛔ GATE — user confirms `docs/RELEASING.md` one-time setup completed (tap repo + PAT + secret). NO commit/push/tag before this
-- [ ] 6.3 Single shot: commit (conventional message) → tag `v0.1.0` → push branch + tag
-- [ ] 6.4 Verify release: GitHub Action green, Release `v0.1.0` with 6 archives + checksums + changelog, tap formula updated, `brew install luchrv/tap/lazyncu` works
+- [x] 6.3 Single shot: commit (conventional message) → tag `v0.1.0` → push branch + tag
+- [x] 6.4 Verify release: GitHub Action green, Release `v0.1.0` with 6 archives + checksums + changelog, tap cask updated, `brew install luchrv/tap/lazyncu` works
