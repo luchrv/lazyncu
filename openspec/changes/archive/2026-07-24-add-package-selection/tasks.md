@@ -23,7 +23,7 @@
 
 ## 5. Verification & docs
 
-- [ ] 5.1 TUI smoke test (tmux): Tab focus both ways, mark/unmark, `x` clear, filtered command in bar, `c` copies filtered, rescan clears marks, `q` quits from table focus, help bar switches
-- [ ] 5.2 Update README keybindings table (`Tab`, `␣`, `x`, `Esc`)
-- [ ] 5.3 `make check` green (coverage ≥80% pure packages)
-- [ ] 5.4 Commit + push
+- [x] 5.1 TUI smoke test (tmux): Tab focus both ways, mark/unmark, `x` clear, filtered command in bar, `c` copies filtered, rescan clears marks, `q` quits from table focus, help bar switches
+- [x] 5.2 Update README keybindings table (`Tab`, `␣`, `x`, `Esc`)
+- [x] 5.3 `make check` green (coverage ≥80% pure packages; total 90.1%)
+- [x] 5.4 Commit + push
