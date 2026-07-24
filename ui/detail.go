@@ -9,6 +9,7 @@ import (
 	"github.com/luchrv/lazyncu/audit"
 	"github.com/luchrv/lazyncu/command"
 	"github.com/luchrv/lazyncu/orchestrator"
+	"github.com/luchrv/lazyncu/scanner"
 	"github.com/luchrv/lazyncu/semver"
 )
 
@@ -18,6 +19,7 @@ const chainSeparator = " ← "
 // selection, or the vulnerability detail when that view is toggled on.
 func (a *App) refreshDetail() {
 	a.detail.Clear()
+	a.rowPkgs = nil // marking is only valid on the packages view
 	if a.showVulns {
 		a.detail.SetTitle(" Vulnerabilities (v to go back) ")
 		a.renderVulns()
@@ -50,10 +52,17 @@ func (a *App) renderPackages() {
 		return
 	}
 
+	marks := a.currentMarks()
 	a.detailHeader("Package", "Current", "New", "Severity")
 	for row, p := range pkgs {
+		a.rowPkgs = append(a.rowPkgs, p.Name)
 		color := severityColor(p.Severity)
 		a.detailRow(row+1, color, p.Name, p.Current, p.New, string(p.Severity))
+		if marks[p.Name] {
+			a.detail.SetCell(row+1, 0, tview.NewTableCell("✓ "+p.Name).
+				SetTextColor(tcell.ColorYellow).
+				SetExpansion(1))
+		}
 	}
 }
 
@@ -103,12 +112,20 @@ func (a *App) refreshCommandBar() {
 }
 
 // currentCommands resolves the update and fix commands for the selection.
+// A non-empty mark set narrows the update command to the marked packages;
+// the fix command is never affected by marks.
 func (a *App) currentCommands() (update, fix string) {
 	st, ok := a.state[a.sel.source]
 	if !ok || st.loading || st.event.Err != nil {
 		return "", ""
 	}
+	marks := a.currentMarks()
 	if a.sel.source == orchestrator.SourceGlobal {
+		if len(marks) > 0 {
+			if filtered := command.GlobalUpdateFiltered(st.event.Packages, marks); filtered != "" {
+				return filtered, ""
+			}
+		}
 		return command.GlobalUpdate(st.event.Packages), ""
 	}
 	pr, ok := a.selectedProject()
@@ -117,8 +134,26 @@ func (a *App) currentCommands() (update, fix string) {
 	}
 	if len(pr.Packages) > 0 {
 		update = command.ProjectUpdate(pr.Dir, pr.PM)
+		if names := markedNames(pr.Packages, marks); len(names) > 0 {
+			update = command.ProjectUpdateFiltered(pr.Dir, pr.PM, names)
+		}
 	}
 	return update, audit.FixCommand(pr.Audit, pr.Dir, pr.PM)
+}
+
+// markedNames filters the scan's packages down to the marked ones,
+// preserving scan order and dropping marks that no longer exist.
+func markedNames(pkgs []scanner.Package, marks map[string]bool) []string {
+	if len(marks) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(marks))
+	for _, p := range pkgs {
+		if marks[p.Name] {
+			names = append(names, p.Name)
+		}
+	}
+	return names
 }
 
 // selectedProject resolves the selection to a project, falling back to the

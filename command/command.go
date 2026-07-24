@@ -26,13 +26,5 @@ func GlobalUpdate(pkgs []scanner.Package) string {
 // ProjectUpdate builds `cd <dir> && ncu -u && <install>` with the install
 // step matching the project's package manager.
 func ProjectUpdate(dir string, pm detect.PackageManager) string {
-	install := map[detect.PackageManager]string{
-		detect.Npm:  "npm install",
-		detect.Pnpm: "pnpm install",
-		detect.Yarn: "yarn",
-	}[pm]
-	if install == "" {
-		install = "npm install"
-	}
-	return "cd " + dir + " && ncu -u && " + install
+	return "cd " + dir + " && ncu -u && " + installStep(pm)
 }

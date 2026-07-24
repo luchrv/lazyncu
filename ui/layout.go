@@ -7,13 +7,15 @@ import (
 const (
 	pageMain    = "main"
 	pageAddPath = "add-path"
-	// statusHelp uses [yellow]…[-] tags: bare key letters like "[q]" would be
-	// swallowed as color tags by tview's dynamic-colors parser.
-	statusHelp  = "[yellow]q[-] quit  [yellow]c[-] copy cmd  [yellow]v[-] vulns  [yellow]r[-] rescan  [yellow]a[-] add path  [yellow]d[-] del path  [yellow]↵[-] fold  [yellow]m[-] msgs  [yellow]h[-] about"
-	helpWidth   = 95
-	cmdBarRows  = 4
-	modalWidth  = 60
-	modalHeight = 3
+	// Help strings use [yellow]…[-] tags: bare key letters like "[q]" would
+	// be swallowed as color tags by tview's dynamic-colors parser. Content
+	// is contextual: one variant per focused panel.
+	statusHelpTree  = "[yellow]q[-] quit  [yellow]c[-] copy cmd  [yellow]v[-] vulns  [yellow]r[-] rescan  [yellow]a[-] add path  [yellow]d[-] del path  [yellow]↵[-] fold  [yellow]m[-] msgs  [yellow]h[-] about  [yellow]Tab[-] pkgs"
+	statusHelpTable = "[yellow]q[-] quit  [yellow]↑↓[-] move  [yellow]␣[-] mark  [yellow]x[-] clear  [yellow]c[-] copy cmd  [yellow]Tab[-]/[yellow]Esc[-] back"
+	helpWidth       = 106
+	cmdBarRows      = 4
+	modalWidth      = 60
+	modalHeight     = 3
 )
 
 func (a *App) buildLayout() {
@@ -51,7 +53,7 @@ func (a *App) buildLayout() {
 
 	a.statusMsg = tview.NewTextView().SetDynamicColors(true)
 	a.helpBar = tview.NewTextView().SetDynamicColors(true).SetTextAlign(tview.AlignRight)
-	a.helpBar.SetText(statusHelp)
+	a.helpBar.SetText(statusHelpTree)
 
 	right := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(a.detail, 0, 1, false).
@@ -73,6 +75,15 @@ func (a *App) buildLayout() {
 
 	a.pages = tview.NewPages().AddPage(pageMain, outer, true, true)
 	a.tv.SetInputCapture(a.handleKey)
+}
+
+// refreshHelp swaps the help bar to the variant of the focused panel.
+func (a *App) refreshHelp() {
+	if a.tableFocused {
+		a.helpBar.SetText(statusHelpTable)
+		return
+	}
+	a.helpBar.SetText(statusHelpTree)
 }
 
 // centered wraps a primitive in a fixed-size centered modal frame.

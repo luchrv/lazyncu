@@ -6,6 +6,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"maps"
 
 	"github.com/rivo/tview"
 
@@ -18,6 +19,10 @@ type sourceState struct {
 	loading   bool
 	collapsed bool
 	event     orchestrator.Event
+	// marks holds the packages selected for a filtered update command,
+	// keyed by projectIdx (-1 = the source itself / global). In-memory
+	// only: cleared on rescan, never persisted.
+	marks map[int]map[string]bool
 }
 
 // selection identifies what the user has highlighted in the panel.
@@ -50,6 +55,50 @@ type App struct {
 	showVulns  bool
 	msgsHidden bool
 	lastMsg    string
+
+	// tableFocused: keyboard focus is on the Packages table (Tab toggles).
+	tableFocused bool
+	// rowPkgs maps rendered package-table rows (minus header) to package
+	// names; nil while the vulnerability view is shown.
+	rowPkgs []string
+}
+
+// currentMarks returns the mark set of the selected entry (nil when none).
+func (a *App) currentMarks() map[string]bool {
+	st, ok := a.state[a.sel.source]
+	if !ok || st.marks == nil {
+		return nil
+	}
+	return st.marks[a.sel.projectIdx]
+}
+
+// toggleMark flips one package's mark for the selected entry, rebuilding the
+// inner set instead of mutating it in place.
+func (a *App) toggleMark(name string) {
+	st, ok := a.state[a.sel.source]
+	if !ok {
+		return
+	}
+	next := make(map[string]bool, len(st.marks[a.sel.projectIdx])+1)
+	maps.Copy(next, st.marks[a.sel.projectIdx])
+	if next[name] {
+		delete(next, name)
+	} else {
+		next[name] = true
+	}
+	if st.marks == nil {
+		st.marks = map[int]map[string]bool{}
+	}
+	st.marks[a.sel.projectIdx] = next
+}
+
+// clearMarks removes every mark of the selected entry.
+func (a *App) clearMarks() {
+	st, ok := a.state[a.sel.source]
+	if !ok || st.marks == nil {
+		return
+	}
+	delete(st.marks, a.sel.projectIdx)
 }
 
 // New assembles the dashboard around an already-loaded config.

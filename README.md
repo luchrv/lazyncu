@@ -68,13 +68,18 @@ All sources scan in parallel; results stream in as each finishes. Select a sourc
 | `Enter` | Collapse/expand the selected source's project list |
 | `m` | Hide/show status messages (bottom left) |
 | `h` | About (version, commit, build date) — close with `Esc` or `h` |
-| `↑↓` | Navigate sources and projects |
+| `Tab` | Move focus between the sources tree and the packages table |
+| `Space` | (table) Mark/unmark a package — the update command narrows to the marked ones |
+| `x` | (table) Clear all marks of the current project |
+| `Esc` | (table) Back to the sources tree |
+| `↑↓` | Navigate sources/projects, or table rows when the table is focused |
 
 ### Suggested commands (shown, never executed)
 
 | Context | Command |
 |---------|---------|
 | Global packages | `npm install -g pkg@x.y.z ...` |
+| Marked packages only | `cd <dir> && ncu -u pkg1 pkg2 && npm install` (or the global subset) |
 | npm project | `cd <dir> && ncu -u && npm install` |
 | pnpm project | `cd <dir> && ncu -u && pnpm install` |
 | yarn project | `cd <dir> && ncu -u && yarn` |

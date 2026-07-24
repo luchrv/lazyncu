@@ -15,8 +15,21 @@ func (a *App) handleKey(ev *tcell.EventKey) *tcell.EventKey {
 	if _, editing := a.tv.GetFocus().(*tview.InputField); editing {
 		return ev
 	}
-	if ev.Key() == tcell.KeyEscape && a.pages.HasPage(pageAbout) {
-		a.closeAbout()
+	switch ev.Key() {
+	case tcell.KeyEscape:
+		if a.pages.HasPage(pageAbout) {
+			a.closeAbout()
+			return nil
+		}
+		if a.tableFocused {
+			a.setTableFocus(false)
+			return nil
+		}
+	case tcell.KeyTab:
+		if a.pages.HasPage(pageAbout) {
+			return nil
+		}
+		a.setTableFocus(!a.tableFocused)
 		return nil
 	}
 	switch ev.Rune() {
@@ -45,8 +58,50 @@ func (a *App) handleKey(ev *tcell.EventKey) *tcell.EventKey {
 	case 'd':
 		a.removeSelectedPath()
 		return nil
+	case ' ':
+		if a.tableFocused && !a.showVulns {
+			a.toggleMarkUnderCursor()
+			return nil
+		}
+	case 'x':
+		if a.tableFocused && !a.showVulns {
+			a.clearMarks()
+			a.refreshDetail()
+			a.refreshCommandBar()
+			return nil
+		}
 	}
 	return ev
+}
+
+// setTableFocus moves keyboard focus between the sources tree and the
+// Packages table, adjusting row selectability and the contextual help.
+func (a *App) setTableFocus(focused bool) {
+	a.tableFocused = focused
+	a.detail.SetSelectable(focused, false)
+	if focused {
+		a.tv.SetFocus(a.detail)
+		if a.detail.GetRowCount() > 1 {
+			a.detail.Select(1, 0)
+		}
+	} else {
+		a.tv.SetFocus(a.tree)
+	}
+	a.refreshHelp()
+}
+
+// toggleMarkUnderCursor marks/unmarks the package on the selected table row
+// and refreshes the views, keeping the cursor where it was.
+func (a *App) toggleMarkUnderCursor() {
+	row, _ := a.detail.GetSelection()
+	idx := row - 1 // header occupies row 0
+	if idx < 0 || idx >= len(a.rowPkgs) {
+		return
+	}
+	a.toggleMark(a.rowPkgs[idx])
+	a.refreshDetail()
+	a.refreshCommandBar()
+	a.detail.Select(row, 0)
 }
 
 // copyCommand puts the visible command on the clipboard: the fix command
@@ -95,6 +150,7 @@ func (a *App) rescanSelected() {
 		return
 	}
 	st.loading = true
+	st.marks = nil // fresh scan invalidates the selection
 	a.scanOne(src)
 	a.refreshAll()
 	a.setStatus("rescanning %s…", displayName(src))
