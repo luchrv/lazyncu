@@ -24,6 +24,7 @@ demos:
 	vhs assets/tapes/hero.tape
 	vhs assets/tapes/vulns.tape
 	vhs assets/tapes/add-path.tape
+	vhs assets/tapes/select.tape
 
 test:
 	$(GO) test $(PKGS)

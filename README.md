@@ -74,6 +74,10 @@ All sources scan in parallel; results stream in as each finishes. Select a sourc
 | `Esc` | (table) Back to the sources tree |
 | `↑↓` | Navigate sources/projects, or table rows when the table is focused |
 
+Mark packages with `Space` to narrow the update command to just those:
+
+![package selection demo](assets/demo/select.gif)
+
 ### Suggested commands (shown, never executed)
 
 | Context | Command |
