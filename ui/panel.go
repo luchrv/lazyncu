@@ -78,20 +78,23 @@ func projectText(pr orchestrator.ProjectResult) string {
 		pr.Label, updateSummary(pr.Counters), auditSummary(pr.Audit))
 }
 
-// updateSummary renders semver counters like "[red]3M[-] [yellow]5m[-] [green]2p[-]".
+// updateSummary renders semver counters with shape glyphs, like
+// "[red]▲3[-] [yellow]●5[-] [green]▪2[-]". Shapes keep the semver side on a
+// different alphabet than the audit letters (C/H/M/L), so `M` can never
+// mean two things on one line, and they survive without color.
 func updateSummary(c semver.Counters) string {
 	if c.Total() == 0 {
 		return "[green]up to date[-]"
 	}
 	out := ""
 	if c.Major > 0 {
-		out += fmt.Sprintf("[red]%dM[-] ", c.Major)
+		out += fmt.Sprintf("[red]▲%d[-] ", c.Major)
 	}
 	if c.Minor > 0 {
-		out += fmt.Sprintf("[yellow]%dm[-] ", c.Minor)
+		out += fmt.Sprintf("[yellow]●%d[-] ", c.Minor)
 	}
 	if c.Patch > 0 {
-		out += fmt.Sprintf("[green]%dp[-] ", c.Patch)
+		out += fmt.Sprintf("[green]▪%d[-] ", c.Patch)
 	}
 	return out[:len(out)-1]
 }
@@ -111,16 +114,16 @@ func auditSummary(res audit.Result) string {
 	}
 	out := ""
 	if c.Critical > 0 {
-		out += fmt.Sprintf("[red::b]%dC[-:-:-] ", c.Critical)
+		out += fmt.Sprintf("[red::b]C%d[-:-:-] ", c.Critical)
 	}
 	if c.High > 0 {
-		out += fmt.Sprintf("[red]%dH[-] ", c.High)
+		out += fmt.Sprintf("[red]H%d[-] ", c.High)
 	}
 	if c.Moderate > 0 {
-		out += fmt.Sprintf("[yellow]%dM[-] ", c.Moderate)
+		out += fmt.Sprintf("[yellow]M%d[-] ", c.Moderate)
 	}
 	if c.Low > 0 {
-		out += fmt.Sprintf("[gray]%dL[-] ", c.Low)
+		out += fmt.Sprintf("[gray]L%d[-] ", c.Low)
 	}
 	return out[:len(out)-1]
 }

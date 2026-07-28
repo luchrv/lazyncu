@@ -1,21 +1,16 @@
 package ui
 
 import (
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
 const (
 	pageMain    = "main"
 	pageAddPath = "add-path"
-	// Help strings use [yellow]…[-] tags: bare key letters like "[q]" would
-	// be swallowed as color tags by tview's dynamic-colors parser. Content
-	// is contextual: one variant per focused panel.
-	statusHelpTree  = "[yellow]q[-] quit  [yellow]c[-] copy cmd  [yellow]v[-] vulns  [yellow]r[-] rescan  [yellow]a[-] add path  [yellow]d[-] del path  [yellow]↵[-] fold  [yellow]m[-] msgs  [yellow]h[-] about  [yellow]Tab[-] pkgs"
-	statusHelpTable = "[yellow]q[-] quit  [yellow]↑↓[-] move  [yellow]␣[-] mark  [yellow]x[-] clear  [yellow]c[-] copy cmd  [yellow]Tab[-]/[yellow]Esc[-] back"
-	helpWidth       = 106
-	cmdBarRows      = 4
-	modalWidth      = 60
-	modalHeight     = 3
+	cmdBarRows  = 4
+	modalWidth  = 60
+	modalHeight = 3
 )
 
 func (a *App) buildLayout() {
@@ -53,7 +48,6 @@ func (a *App) buildLayout() {
 
 	a.statusMsg = tview.NewTextView().SetDynamicColors(true)
 	a.helpBar = tview.NewTextView().SetDynamicColors(true).SetTextAlign(tview.AlignRight)
-	a.helpBar.SetText(statusHelpTree)
 
 	right := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(a.detail, 0, 1, false).
@@ -64,26 +58,39 @@ func (a *App) buildLayout() {
 		AddItem(right, 0, 2, false)
 
 	// Bottom line: transient messages on the left, permanent key help on the
-	// right — a message must never hide the help.
-	bottom := tview.NewFlex().
+	// right — a message must never hide the help. The help zone is resized
+	// to the generated variant in renderHelp.
+	a.bottom = tview.NewFlex().
 		AddItem(a.statusMsg, 0, 1, false).
-		AddItem(a.helpBar, helpWidth, 0, false)
+		AddItem(a.helpBar, 0, 0, false)
 
 	outer := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(body, 0, 1, true).
-		AddItem(bottom, 1, 0, false)
+		AddItem(a.bottom, 1, 0, false)
 
 	a.pages = tview.NewPages().AddPage(pageMain, outer, true, true)
 	a.tv.SetInputCapture(a.handleKey)
+	// The terminal width drives the help variant; re-rendered on resize.
+	a.tv.SetBeforeDrawFunc(func(screen tcell.Screen) bool {
+		if w, _ := screen.Size(); w != a.screenW {
+			a.screenW = w
+			a.renderHelp()
+		}
+		return false
+	})
 }
 
-// refreshHelp swaps the help bar to the variant of the focused panel.
-func (a *App) refreshHelp() {
-	if a.tableFocused {
-		a.helpBar.SetText(statusHelpTable)
-		return
+// renderHelp regenerates the help bar from the keymap for the current
+// context, picking the widest variant the terminal width allows so the
+// message zone always keeps room.
+func (a *App) renderHelp() {
+	ctx := a.currentContext()
+	if ctx == ctxModal {
+		return // the dashboard help is irrelevant while a modal is up
 	}
-	a.helpBar.SetText(statusHelpTree)
+	text, width := helpForWidth(ctx, a.screenW)
+	a.helpBar.SetText(text)
+	a.bottom.ResizeItem(a.helpBar, width, 0)
 }
 
 // centered wraps a primitive in a fixed-size centered modal frame.
