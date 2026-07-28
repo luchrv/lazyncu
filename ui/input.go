@@ -9,69 +9,53 @@ import (
 	"github.com/luchrv/lazyncu/orchestrator"
 )
 
-// handleKey implements the global keybindings. It steps aside whenever a
-// text input (the add-path modal) has focus.
+// handleKey dispatches key events through the declarative keymap against
+// the current context. It steps aside whenever a text input (the add-path
+// modal) has focus.
 func (a *App) handleKey(ev *tcell.EventKey) *tcell.EventKey {
 	if _, editing := a.tv.GetFocus().(*tview.InputField); editing {
 		return ev
 	}
-	switch ev.Key() {
-	case tcell.KeyEscape:
-		if a.pages.HasPage(pageAbout) {
-			a.closeAbout()
-			return nil
-		}
-		if a.tableFocused {
-			a.setTableFocus(false)
-			return nil
-		}
-	case tcell.KeyTab:
-		if a.pages.HasPage(pageAbout) {
-			return nil
-		}
-		a.setTableFocus(!a.tableFocused)
+	ctx := a.currentContext()
+	if ctx == ctxModal {
+		return a.handleModalKey(ev)
+	}
+	b, ok := lookupDispatch(ev)
+	if !ok {
+		return ev // unbound keys pass through to the focused widget
+	}
+	if b.activeIn(ctx) {
+		b.do(a)
 		return nil
 	}
-	switch ev.Rune() {
-	case 'q':
+	if b.desc == "" {
+		return ev // hidden dispatch rows (Tab/Esc) never hint
+	}
+	a.showHint(hintFor(b, ctx))
+	return nil // bound elsewhere: teach, and never fire blind
+}
+
+// handleModalKey keeps modals inert. The About modal answers q (quit) and
+// Esc/h (close); a confirmation modal only its own navigation and
+// selection keys — q must not quit mid-question, and dashboard keys must
+// not act underneath a modal.
+func (a *App) handleModalKey(ev *tcell.EventKey) *tcell.EventKey {
+	if a.pages.HasPage(pageConfirm) {
+		switch ev.Key() {
+		case tcell.KeyEscape, tcell.KeyEnter, tcell.KeyTab, tcell.KeyBacktab,
+			tcell.KeyLeft, tcell.KeyRight, tcell.KeyUp, tcell.KeyDown:
+			return ev // the modal's own navigation and selection
+		}
+		return nil
+	}
+	// About modal.
+	switch {
+	case ev.Key() == tcell.KeyEscape, ev.Rune() == 'h':
+		a.closeAbout()
+	case ev.Rune() == 'q':
 		a.tv.Stop()
-		return nil
-	case 'c':
-		a.copyCommand()
-		return nil
-	case 'v':
-		a.showVulns = !a.showVulns
-		a.refreshDetail()
-		return nil
-	case 'r':
-		a.rescanSelected()
-		return nil
-	case 'm':
-		a.toggleMessages()
-		return nil
-	case 'h':
-		a.toggleAbout()
-		return nil
-	case 'a':
-		a.openAddPath()
-		return nil
-	case 'd':
-		a.removeSelectedPath()
-		return nil
-	case ' ':
-		if a.tableFocused && !a.showVulns {
-			a.toggleMarkUnderCursor()
-			return nil
-		}
-	case 'x':
-		if a.tableFocused && !a.showVulns {
-			a.clearMarks()
-			a.refreshDetail()
-			a.refreshCommandBar()
-			return nil
-		}
 	}
-	return ev
+	return nil
 }
 
 // setTableFocus moves keyboard focus between the sources tree and the
@@ -87,7 +71,7 @@ func (a *App) setTableFocus(focused bool) {
 	} else {
 		a.tv.SetFocus(a.tree)
 	}
-	a.refreshHelp()
+	a.renderHelp()
 }
 
 // toggleMarkUnderCursor marks/unmarks the package on the selected table row
@@ -137,8 +121,9 @@ func (a *App) toggleFold(src string) {
 	a.refreshTree()
 }
 
-// rescanSelected rescans the selected source. Disabled while that source is
-// already scanning: the guard prevents overlapping scans of the same source.
+// rescanSelected rescans the selected source, first confirming when marks
+// would be lost. Disabled while that source is already scanning: the guard
+// prevents overlapping scans of the same source.
 func (a *App) rescanSelected() {
 	src := a.sel.source
 	st, ok := a.state[src]
@@ -147,6 +132,21 @@ func (a *App) rescanSelected() {
 	}
 	if st.loading {
 		a.setStatus("[yellow]%s is still scanning — rescan is disabled until it finishes[-]", displayName(src))
+		return
+	}
+	if marks, projects := markCount(st); marks > 0 {
+		a.confirm(confirmRescanText(displayName(src), marks, projects),
+			func() { a.doRescan(src) })
+		return
+	}
+	a.doRescan(src)
+}
+
+// doRescan launches the rescan; the marks were either absent or their loss
+// was confirmed by the user.
+func (a *App) doRescan(src string) {
+	st, ok := a.state[src]
+	if !ok {
 		return
 	}
 	st.loading = true
@@ -207,13 +207,23 @@ func (a *App) addPath(raw string) {
 	a.setStatus("[green]added %s — scanning[-]", added)
 }
 
-// removeSelectedPath unregisters the selected source (never the global one).
+// removeSelectedPath asks for confirmation, then unregisters the selected
+// source (never the global one).
 func (a *App) removeSelectedPath() {
 	src := a.sel.source
 	if src == orchestrator.SourceGlobal {
 		a.setStatus("the global source cannot be removed")
 		return
 	}
+	if _, ok := a.state[src]; !ok {
+		return
+	}
+	a.confirm(confirmRemoveText(src), func() { a.doRemovePath(src) })
+}
+
+// doRemovePath drops the registration after the user confirmed; the folder
+// on disk is never touched.
+func (a *App) doRemovePath(src string) {
 	updated := a.cfg.RemovePath(src)
 	if err := config.Save(a.cfgPath, updated); err != nil {
 		a.setStatus("[red]could not save config: %v[-]", err)

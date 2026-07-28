@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"time"
 
 	"github.com/rivo/tview"
 
@@ -52,9 +53,16 @@ type App struct {
 	cmdBar     *tview.TextView
 	statusMsg  *tview.TextView
 	helpBar    *tview.TextView
+	bottom     *tview.Flex
 	showVulns  bool
 	msgsHidden bool
 	lastMsg    string
+	// msgGen increments on every status message; expired hint timers
+	// compare against it so they never clear a newer message.
+	msgGen int
+	// screenW is the last observed terminal width, used to pick the help
+	// variant that still leaves the message zone room.
+	screenW int
 
 	// tableFocused: keyboard focus is on the Packages table (Tab toggles).
 	tableFocused bool
@@ -181,10 +189,70 @@ func (a *App) refreshAll() {
 // on the right stays untouched. The last message is remembered so toggling
 // the zone back on restores it.
 func (a *App) setStatus(format string, args ...any) {
+	a.msgGen++
 	a.lastMsg = fmt.Sprintf(format, args...)
 	if !a.msgsHidden {
 		a.statusMsg.SetText(a.lastMsg)
 	}
+}
+
+// hintTTL is how long an out-of-context teaching hint stays visible.
+const hintTTL = 5 * time.Second
+
+// showHint displays a teaching hint that clears itself after hintTTL
+// unless a newer message replaced it in the meantime.
+func (a *App) showHint(msg string) {
+	if msg == "" {
+		return
+	}
+	a.setStatus("[yellow]%s[-]", msg)
+	gen := a.msgGen
+	time.AfterFunc(hintTTL, func() {
+		a.tv.QueueUpdateDraw(func() { a.clearHintIfCurrent(gen) })
+	})
+}
+
+// clearHintIfCurrent clears the status zone only while gen still identifies
+// the visible message: an expired hint must never erase a newer message.
+func (a *App) clearHintIfCurrent(gen int) {
+	if a.msgGen != gen {
+		return
+	}
+	a.lastMsg = ""
+	if !a.msgsHidden {
+		a.statusMsg.SetText("")
+	}
+}
+
+// currentContext derives the keymap context from existing UI state; there
+// is no separate context field to keep in sync.
+func (a *App) currentContext() keyContext {
+	switch {
+	case a.pages.HasPage(pageAbout) || a.pages.HasPage(pageConfirm):
+		return ctxModal
+	case a.tableFocused && a.showVulns:
+		return ctxTableVulns
+	case a.tableFocused:
+		return ctxTablePackages
+	default:
+		return ctxTree
+	}
+}
+
+// toggleVulns switches the detail panel between packages and
+// vulnerabilities, moving the table between its two keymap contexts.
+func (a *App) toggleVulns() {
+	a.showVulns = !a.showVulns
+	a.refreshDetail()
+	a.renderHelp()
+}
+
+// clearMarksSelected clears the selected entry's marks and refreshes the
+// views that render them.
+func (a *App) clearMarksSelected() {
+	a.clearMarks()
+	a.refreshDetail()
+	a.refreshCommandBar()
 }
 
 // toggleMessages hides or restores the status-message zone.

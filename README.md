@@ -57,22 +57,34 @@ All sources scan in parallel; results stream in as each finishes. Select a sourc
 
 ### Keybindings
 
-| Key | Action |
-|-----|--------|
-| `q` | Quit |
-| `c` | Copy the visible command (update command; fix command in the vulnerability view) |
-| `v` | Toggle vulnerability detail view |
-| `r` | Rescan the selected source (disabled while it is already scanning) |
-| `a` | Add a path (validated, persisted, scanned immediately) |
-| `d` | Remove the selected path |
-| `Enter` | Collapse/expand the selected source's project list |
-| `m` | Hide/show status messages (bottom left) |
-| `h` | About (version, commit, build date) — close with `Esc` or `h` |
-| `Tab` | Move focus between the sources tree and the packages table |
-| `Space` | (table) Mark/unmark a package — the update command narrows to the marked ones |
-| `x` | (table) Clear all marks of the current project |
-| `Esc` | (table) Back to the sources tree |
-| `↑↓` | Navigate sources/projects, or table rows when the table is focused |
+Keys are scoped to the focused panel: pressing a key where it doesn't apply
+shows a short hint instead of firing blind, and the bottom help bar always
+reflects exactly what works right now.
+
+| Key | Scope | Action |
+|-----|-------|--------|
+| `q` | global | Quit |
+| `c` | global | Copy the visible command (update command; fix command in the vulnerability view) |
+| `v` | global | Toggle vulnerability detail view |
+| `r` | global | Rescan the selected source (asks for confirmation when marked packages would be lost; disabled while already scanning) |
+| `m` | global | Hide/show status messages (bottom left) |
+| `h` | global | About (version, commit, build date, counter legend) — close with `Esc` or `h` |
+| `Tab` | global | Move focus between the sources tree and the packages table |
+| `a` | sources | Add a path (validated, persisted, scanned immediately) |
+| `d` | sources | Remove the selected path (asks for confirmation; the folder on disk is never touched) |
+| `Enter` | sources | Collapse/expand the selected source's project list |
+| `Space` | packages table | Mark/unmark a package — the update command narrows to the marked ones |
+| `x` | packages table | Clear all marks of the current project |
+| `Esc` | packages table | Back to the sources tree |
+| `↑↓` | — | Navigate sources/projects, or table rows when the table is focused |
+
+Severity counters in the sources panel use two distinct alphabets — shapes
+for pending updates, letters for vulnerabilities (legend also in `h`):
+
+| Counter | Meaning |
+|---------|---------|
+| `▲3 ●5 ▪2` | 3 major, 5 minor, 2 patch updates pending |
+| `C1 H2 M3 L4` | 1 critical, 2 high, 3 moderate, 4 low vulnerabilities |
 
 Mark packages with `Space` to narrow the update command to just those:
 
