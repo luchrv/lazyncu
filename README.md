@@ -68,6 +68,7 @@ reflects exactly what works right now.
 | `c` | global | Copy the visible command (update command; fix command in the vulnerability view) |
 | `v` | global | Toggle vulnerability detail view |
 | `r` | global | Rescan the selected source (asks for confirmation when marked packages would be lost; disabled while already scanning) |
+| `R` | global | Rescan every idle source at once (one aggregate confirmation if any marks would be lost) |
 | `m` | global | Hide/show status messages (bottom left) |
 | `h` | global | About (version, commit, build date) — close with `Esc` or `h` |
 | `Tab` | global | Move focus between the sources tree and the packages table |
@@ -79,7 +80,7 @@ reflects exactly what works right now.
 | `x` | packages table | Clear all marks of the current project |
 | `s` | table (both views) | Cycle row order: scan → severity → name (shown in the title) |
 | `/` | table (both views) | Incremental filter by package name — `Enter` keeps it, `Esc` clears |
-| `Esc` | packages table | Clear the active filter first; back to the sources tree otherwise |
+| `Esc` | anywhere | Peel one layer: clear the filter, leave the table, or collapse the selected source |
 | `↑↓` | — | Navigate sources/projects, or table rows when the table is focused |
 
 Severity counters in the sources panel use two distinct alphabets — shapes

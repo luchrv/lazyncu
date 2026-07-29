@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/luchrv/lazyncu/audit"
@@ -133,8 +134,75 @@ func TestDetailTitleComposition(t *testing.T) {
 		{false, sortSeverity, "axi", " 2 Packages (v for vulnerabilities) · sort: severity · /axi "},
 	}
 	for _, tc := range cases {
-		if got := detailTitle(tc.vulns, tc.mode, tc.filter); got != tc.want {
+		if got := detailTitle(tc.vulns, tc.mode, tc.filter, 0, 0); got != tc.want {
 			t.Errorf("detailTitle(%v,%d,%q) = %q, want %q", tc.vulns, tc.mode, tc.filter, got, tc.want)
 		}
+	}
+}
+
+func TestDetailTitleMarkCounter(t *testing.T) {
+	got := detailTitle(false, sortScan, "", 2, 6)
+	if got != " 2 Packages (v for vulnerabilities) · 2/6 marked " {
+		t.Errorf("marked title = %q", got)
+	}
+	// Hidden at zero and in the vulns view.
+	if got := detailTitle(false, sortScan, "", 0, 6); got != " 2 Packages (v for vulnerabilities) " {
+		t.Errorf("zero marks must hide the counter: %q", got)
+	}
+	if got := detailTitle(true, sortScan, "", 2, 6); got != " 2 Vulnerabilities (v to go back) " {
+		t.Errorf("vulns view must not show the counter: %q", got)
+	}
+}
+
+func TestWrapText(t *testing.T) {
+	if got := wrapText("short", 20); len(got) != 1 || got[0] != "short" {
+		t.Errorf("short passthrough = %v", got)
+	}
+	got := wrapText("one two three four", 9)
+	if len(got) != 3 || got[0] != "one two" || got[1] != "three" || got[2] != "four" {
+		t.Errorf("word wrap = %v", got)
+	}
+	got = wrapText("abcdefghij", 4)
+	if len(got) != 3 || got[0] != "abcd" {
+		t.Errorf("long token must hard-split: %v", got)
+	}
+}
+
+func TestCommandBarContentSingleLine(t *testing.T) {
+	text, lines := commandBarContent("cd /x && ncu -u", "", 60)
+
+	if lines != 1 {
+		t.Errorf("lines = %d, want 1", lines)
+	}
+	if !strings.Contains(text, "cd /x && ncu -u") {
+		t.Errorf("text = %q", text)
+	}
+}
+
+func TestCommandBarContentTwoCommands(t *testing.T) {
+	_, lines := commandBarContent("cd /x && ncu -u && npm install", "cd /x && npm audit fix", 60)
+
+	if lines != 2 {
+		t.Errorf("lines = %d, want 2", lines)
+	}
+}
+
+func TestCommandBarContentTruncatesLoudly(t *testing.T) {
+	long := strings.Repeat("pkg-name ", 40) // ~360 chars >> 2 lines of 40
+	text, lines := commandBarContent("ncu -u "+long, "", 40)
+
+	if lines != 2 {
+		t.Errorf("truncated command must cap at 2 lines, got %d", lines)
+	}
+	if !strings.Contains(text, "… (c copies full)") {
+		t.Errorf("truncation must be explicit: %q", text)
+	}
+}
+
+func TestCommandBarContentEmpty(t *testing.T) {
+	text, lines := commandBarContent("", "", 60)
+
+	if lines != 1 || !strings.Contains(text, "nothing to update here") {
+		t.Errorf("empty = %q (%d lines)", text, lines)
 	}
 }

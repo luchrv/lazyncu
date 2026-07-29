@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 
@@ -173,11 +174,15 @@ func vulnCell(s audit.Severity) string {
 	}
 }
 
-// detailTitle composes the detail-panel title from view, sort, and filter.
-func detailTitle(showVulns bool, mode sortMode, filter string) string {
+// detailTitle composes the detail-panel title from view, sort, filter,
+// and mark state — the single home for view indicators.
+func detailTitle(showVulns bool, mode sortMode, filter string, marked, total int) string {
 	title := " 2 Packages (v for vulnerabilities)"
 	if showVulns {
 		title = " 2 Vulnerabilities (v to go back)"
+	}
+	if !showVulns && marked > 0 {
+		title += fmt.Sprintf(" · %d/%d marked", marked, total)
 	}
 	if mode != sortScan {
 		title += " · sort: " + mode.String()
@@ -193,7 +198,8 @@ func detailTitle(showVulns bool, mode sortMode, filter string) string {
 func (a *App) refreshDetail() {
 	a.detail.Clear()
 	a.rowPkgs = nil // marking is only valid on the packages view
-	a.detail.SetTitle(detailTitle(a.showVulns, a.sortMode, a.filterText))
+	marked, total := a.markStats()
+	a.detail.SetTitle(detailTitle(a.showVulns, a.sortMode, a.filterText, marked, total))
 	if a.showVulns {
 		a.renderVulns()
 		return
@@ -211,7 +217,7 @@ func (a *App) renderPackages() {
 		a.detailMessage(spinnerGlyph(a.spinFrame) + " scanning…")
 		return
 	case st.event.Err != nil:
-		a.detailMessage("scan failed: " + st.event.Err.Error())
+		a.renderScanError(st.event.Err)
 		return
 	}
 
@@ -286,20 +292,20 @@ func (a *App) renderVulns() {
 	}
 }
 
-// refreshCommandBar shows the copyable commands for the current selection.
+// refreshCommandBar shows the copyable commands for the current selection,
+// sizing the bar to its content; overflow is truncated with an explicit
+// indicator while c always copies the full command.
 func (a *App) refreshCommandBar() {
 	update, fix := a.currentCommands()
-	lines := make([]string, 0, 2)
-	if update != "" {
-		lines = append(lines, "[yellow]update:[-] "+tview.Escape(update))
-	}
-	if fix != "" {
-		lines = append(lines, "[red]fix:[-]    "+tview.Escape(fix))
-	}
-	if len(lines) == 0 {
-		lines = append(lines, "[gray]nothing to update here[-]")
-	}
-	a.cmdBar.SetText(strings.Join(lines, "\n"))
+	text, lines := commandBarContent(update, fix, a.cmdBarInnerWidth())
+	a.cmdBar.SetText(text)
+	a.right.ResizeItem(a.cmdBar, lines+2, 0) // +2 borders
+}
+
+// cmdBarInnerWidth estimates the bar's usable columns from the observed
+// screen width (the detail column takes 2/3 of the body).
+func (a *App) cmdBarInnerWidth() int {
+	return max(20, a.screenW*2/3-4)
 }
 
 // currentCommands resolves the update and fix commands for the selection.
@@ -452,5 +458,108 @@ func vulnColor(s audit.Severity) tcell.Color {
 		return tcell.ColorYellow
 	default:
 		return tcell.ColorGray
+	}
+}
+
+// wrapText word-wraps s at width w; tokens longer than w are hard-split.
+func wrapText(s string, w int) []string {
+	if w < 1 {
+		return []string{s}
+	}
+	var lines []string
+	line := ""
+	for _, word := range strings.Fields(s) {
+		for len([]rune(word)) > w {
+			if line != "" {
+				lines = append(lines, line)
+				line = ""
+			}
+			runes := []rune(word)
+			lines = append(lines, string(runes[:w]))
+			word = string(runes[w:])
+		}
+		switch {
+		case line == "":
+			line = word
+		case len([]rune(line))+1+len([]rune(word)) <= w:
+			line += " " + word
+		default:
+			lines = append(lines, line)
+			line = word
+		}
+	}
+	if line != "" {
+		lines = append(lines, line)
+	}
+	if len(lines) == 0 {
+		return []string{""}
+	}
+	return lines
+}
+
+// cmdTruncationHint marks a command cut to fit the bar; c still copies it whole.
+const cmdTruncationHint = " … (c copies full)"
+
+// cmdLineBudget is the max content lines one command may occupy in the bar.
+const cmdLineBudget = 2
+
+// commandBarContent renders the command bar body for the visible commands
+// and reports how many content lines it needs. A command longer than its
+// budget is truncated with an explicit indicator — the bar never hides
+// part of a command silently.
+func commandBarContent(update, fix string, innerW int) (string, int) {
+	type entry struct{ prefix, cmd string }
+	entries := make([]entry, 0, 2)
+	if update != "" {
+		entries = append(entries, entry{"[yellow]update:[-] ", update})
+	}
+	if fix != "" {
+		entries = append(entries, entry{"[red]fix:[-]    ", fix})
+	}
+	if len(entries) == 0 {
+		return "[gray]nothing to update here[-]", 1
+	}
+
+	const prefixW = 8 // printable width of both prefixes
+	lines := 0
+	parts := make([]string, 0, len(entries))
+	for _, e := range entries {
+		capacity := cmdLineBudget*innerW - prefixW
+		cmd := e.cmd
+		if len([]rune(cmd)) > capacity {
+			keep := capacity - len([]rune(cmdTruncationHint))
+			if keep < 1 {
+				keep = 1
+			}
+			cmd = string([]rune(cmd)[:keep]) + cmdTruncationHint
+		}
+		used := (prefixW + len([]rune(cmd)) + innerW - 1) / innerW
+		lines += min(max(used, 1), cmdLineBudget)
+		parts = append(parts, e.prefix+tview.Escape(cmd))
+	}
+	return strings.Join(parts, "\n"), lines
+}
+
+// allSourcesMarks totals marks and marked projects across every source —
+// the blast radius of a rescan-all sweep.
+func allSourcesMarks(states map[string]*sourceState) (marks, projects int) {
+	for _, st := range states {
+		m, p := markCount(st)
+		marks += m
+		projects += p
+	}
+	return marks, projects
+}
+
+// renderScanError fills the detail panel with the full failure reason —
+// wrapped so nothing is cut off — and how to retry.
+func (a *App) renderScanError(err error) {
+	a.detail.SetCell(0, 0, tview.NewTableCell("✗ scan failed — press r to retry").
+		SetTextColor(tcell.ColorRed).
+		SetSelectable(false))
+	for i, line := range wrapText(err.Error(), a.cmdBarInnerWidth()) {
+		a.detail.SetCell(i+2, 0, tview.NewTableCell(line).
+			SetTextColor(tcell.ColorGray).
+			SetSelectable(false))
 	}
 }

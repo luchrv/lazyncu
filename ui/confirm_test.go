@@ -142,3 +142,17 @@ func TestNonErrorMessagesScheduleExpiry(t *testing.T) {
 		t.Error("info messages must schedule expiry")
 	}
 }
+
+func TestAllSourcesMarksAggregates(t *testing.T) {
+	a := newTestApp(t)
+	registerPath(a, "/tmp/a")
+	registerPath(a, "/tmp/b")
+	a.state["/tmp/a"].marks = map[int]map[string]bool{0: {"x": true, "y": true}}
+	a.state["/tmp/b"].marks = map[int]map[string]bool{0: {"z": true}, 1: {"w": true}}
+
+	marks, projects := allSourcesMarks(a.state)
+
+	if marks != 4 || projects != 3 {
+		t.Errorf("allSourcesMarks = (%d, %d), want (4, 3)", marks, projects)
+	}
+}

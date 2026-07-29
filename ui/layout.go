@@ -68,13 +68,13 @@ func (a *App) buildLayout() {
 		a.closeFilterInput()
 	})
 
-	right := tview.NewFlex().SetDirection(tview.FlexRow).
+	a.right = tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(a.detail, 0, 1, false).
 		AddItem(a.cmdBar, cmdBarRows, 0, false)
 
 	body := tview.NewFlex().
 		AddItem(a.tree, 0, 1, true).
-		AddItem(right, 0, 2, false)
+		AddItem(a.right, 0, 2, false)
 
 	// Bottom line: transient messages on the left, scan progress in the
 	// middle, permanent key help on the right — a message must never hide
@@ -98,6 +98,7 @@ func (a *App) buildLayout() {
 		if w, _ := screen.Size(); w != a.screenW {
 			a.screenW = w
 			a.renderHelp()
+			a.refreshCommandBar()
 		}
 		return false
 	})
