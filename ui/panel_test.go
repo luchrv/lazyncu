@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/luchrv/lazyncu/audit"
+	"github.com/luchrv/lazyncu/orchestrator"
+	"github.com/luchrv/lazyncu/scanner"
 	"github.com/luchrv/lazyncu/semver"
 )
 
@@ -65,5 +67,86 @@ func TestAuditSummaryNonOKStates(t *testing.T) {
 	}
 	if got := auditSummary(audit.Result{Status: audit.StatusOK}); got != "[green]0 vulns[-]" {
 		t.Errorf("clean summary = %q", got)
+	}
+}
+
+func projWith(maj, min, pat int, res audit.Result) orchestrator.ProjectResult {
+	return orchestrator.ProjectResult{
+		Project: scanner.Project{Counters: semver.Counters{Major: maj, Minor: min, Patch: pat}},
+		Audit:   res,
+	}
+}
+
+func TestAggregateSourceSums(t *testing.T) {
+	// Arrange
+	projects := []orchestrator.ProjectResult{
+		projWith(1, 2, 0, audit.Result{Status: audit.StatusOK, Counters: audit.Counters{High: 1}}),
+		projWith(2, 3, 2, audit.Result{Status: audit.StatusOK, Counters: audit.Counters{High: 2, Low: 1}}),
+	}
+
+	// Act
+	agg := aggregateSource(projects)
+
+	// Assert
+	if agg.updates != (semver.Counters{Major: 3, Minor: 5, Patch: 2}) {
+		t.Errorf("updates = %+v, want 3/5/2", agg.updates)
+	}
+	if agg.vulns != (audit.Counters{High: 3, Low: 1}) {
+		t.Errorf("vulns = %+v, want H3 L1", agg.vulns)
+	}
+	if agg.audited != 2 || agg.failed != 0 {
+		t.Errorf("audited/failed = %d/%d, want 2/0", agg.audited, agg.failed)
+	}
+}
+
+func TestAggregateSourceSkipsNotAvailableAndCountsFailed(t *testing.T) {
+	projects := []orchestrator.ProjectResult{
+		projWith(1, 0, 0, audit.Result{Status: audit.StatusNotAvailable, Counters: audit.Counters{Critical: 9}}),
+		projWith(0, 1, 0, audit.Result{Status: audit.StatusFailed}),
+	}
+
+	agg := aggregateSource(projects)
+
+	if agg.vulns.Total() != 0 {
+		t.Errorf("n/a counters must not be summed, got %+v", agg.vulns)
+	}
+	if agg.audited != 0 || agg.failed != 1 {
+		t.Errorf("audited/failed = %d/%d, want 0/1", agg.audited, agg.failed)
+	}
+}
+
+func TestAggregateAuditText(t *testing.T) {
+	cases := []struct {
+		name string
+		agg  sourceAggregate
+		want string
+	}{
+		{"all n/a", sourceAggregate{}, "[gray]audit n/a[-]"},
+		{"clean", sourceAggregate{audited: 2}, "[green]0 vulns[-]"},
+		{"failed only", sourceAggregate{failed: 1}, "[red]audit ✗[-]"},
+		{"sums", sourceAggregate{audited: 2, vulns: audit.Counters{High: 3, Low: 1}},
+			"[red]H3[-] [gray]L1[-]"},
+		{"sums with failure marker", sourceAggregate{audited: 1, failed: 1, vulns: audit.Counters{High: 3}},
+			"[red]H3[-] [red]✗[-]"},
+	}
+	for _, tc := range cases {
+		if got := aggregateAuditText(tc.agg); got != tc.want {
+			t.Errorf("%s: got %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}
+
+func TestSourceTextShowsAggregate(t *testing.T) {
+	st := &sourceState{event: orchestrator.Event{Projects: []orchestrator.ProjectResult{
+		projWith(3, 0, 0, audit.Result{Status: audit.StatusOK, Counters: audit.Counters{High: 3}}),
+	}}}
+
+	got := sourceText("/tmp/work/api", st)
+
+	printable := colorTag.ReplaceAllString(got, "")
+	for _, want := range []string{"api", "▲3", "H3"} {
+		if !strings.Contains(printable, want) {
+			t.Errorf("source row missing %q: %q", want, printable)
+		}
 	}
 }

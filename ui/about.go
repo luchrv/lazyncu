@@ -10,8 +10,8 @@ import (
 
 const (
 	pageAbout   = "about"
-	aboutWidth  = 64
-	aboutHeight = 15
+	aboutWidth  = 56
+	aboutHeight = 12
 )
 
 // toggleAbout opens the About modal, or closes it when already open.
@@ -28,8 +28,6 @@ func (a *App) toggleAbout() {
 			" Built    %s\n\n"+
 			" Repo     https://github.com/luchrv/lazyncu\n"+
 			" License  Apache-2.0\n\n"+
-			" Updates  [red]▲[-] major   [yellow]●[-] minor     [green]▪[-] patch\n"+
-			" Vulns    [red]C[-] critical [red]H[-] high [yellow]M[-] moderate [gray]L[-] low\n\n"+
 			"               [yellow]Esc[-] / [yellow]h[-] close",
 		info.Version, info.Commit, info.Date)
 	view := tview.NewTextView().SetDynamicColors(true)

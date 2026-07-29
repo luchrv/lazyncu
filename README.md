@@ -64,12 +64,14 @@ reflects exactly what works right now.
 | Key | Scope | Action |
 |-----|-------|--------|
 | `q` | global | Quit |
+| `?` | global | Keymap cheat sheet with the counter legend — close with `Esc` or `?` |
 | `c` | global | Copy the visible command (update command; fix command in the vulnerability view) |
 | `v` | global | Toggle vulnerability detail view |
 | `r` | global | Rescan the selected source (asks for confirmation when marked packages would be lost; disabled while already scanning) |
 | `m` | global | Hide/show status messages (bottom left) |
-| `h` | global | About (version, commit, build date, counter legend) — close with `Esc` or `h` |
+| `h` | global | About (version, commit, build date) — close with `Esc` or `h` |
 | `Tab` | global | Move focus between the sources tree and the packages table |
+| `1` / `2` | global | Jump focus straight to the sources tree / packages table |
 | `a` | sources | Add a path (validated, persisted, scanned immediately) |
 | `d` | sources | Remove the selected path (asks for confirmation; the folder on disk is never touched) |
 | `Enter` | sources | Collapse/expand the selected source's project list |
@@ -79,7 +81,9 @@ reflects exactly what works right now.
 | `↑↓` | — | Navigate sources/projects, or table rows when the table is focused |
 
 Severity counters in the sources panel use two distinct alphabets — shapes
-for pending updates, letters for vulnerabilities (legend also in `h`):
+for pending updates, letters for vulnerabilities (legend also in `?`).
+Every source row aggregates its projects' counters, so a collapsed source
+keeps its signal:
 
 | Counter | Meaning |
 |---------|---------|

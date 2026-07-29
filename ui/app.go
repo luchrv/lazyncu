@@ -228,7 +228,7 @@ func (a *App) clearHintIfCurrent(gen int) {
 // is no separate context field to keep in sync.
 func (a *App) currentContext() keyContext {
 	switch {
-	case a.pages.HasPage(pageAbout) || a.pages.HasPage(pageConfirm):
+	case a.pages.HasPage(pageAbout) || a.pages.HasPage(pageConfirm) || a.pages.HasPage(pageKeys):
 		return ctxModal
 	case a.tableFocused && a.showVulns:
 		return ctxTableVulns

@@ -48,6 +48,15 @@ func (a *App) handleModalKey(ev *tcell.EventKey) *tcell.EventKey {
 		}
 		return nil
 	}
+	if a.pages.HasPage(pageKeys) {
+		switch {
+		case ev.Key() == tcell.KeyEscape, ev.Rune() == '?':
+			a.closeKeys()
+		case ev.Rune() == 'q':
+			a.tv.Stop()
+		}
+		return nil
+	}
 	// About modal.
 	switch {
 	case ev.Key() == tcell.KeyEscape, ev.Rune() == 'h':
@@ -71,6 +80,7 @@ func (a *App) setTableFocus(focused bool) {
 	} else {
 		a.tv.SetFocus(a.tree)
 	}
+	a.applyFocusStyle()
 	a.renderHelp()
 }
 

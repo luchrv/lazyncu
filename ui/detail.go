@@ -21,11 +21,11 @@ func (a *App) refreshDetail() {
 	a.detail.Clear()
 	a.rowPkgs = nil // marking is only valid on the packages view
 	if a.showVulns {
-		a.detail.SetTitle(" Vulnerabilities (v to go back) ")
+		a.detail.SetTitle(" 2 Vulnerabilities (v to go back) ")
 		a.renderVulns()
 		return
 	}
-	a.detail.SetTitle(" Packages (v for vulnerabilities) ")
+	a.detail.SetTitle(" 2 Packages (v for vulnerabilities) ")
 	a.renderPackages()
 }
 
@@ -48,6 +48,12 @@ func (a *App) renderPackages() {
 		pkgs = pr.Packages
 	}
 	if len(pkgs) == 0 {
+		// Onboarding replaces only the empty view: real rows and scan
+		// errors always win over it.
+		if len(a.cfg.Paths) == 0 {
+			a.renderOnboarding()
+			return
+		}
 		a.detailMessage("everything up to date ✓")
 		return
 	}
@@ -192,6 +198,24 @@ func chainText(v audit.Vulnerability) string {
 
 func (a *App) detailMessage(msg string) {
 	a.detail.SetCell(0, 0, tview.NewTableCell(msg).SetTextColor(tcell.ColorGray))
+}
+
+// renderOnboarding fills the empty first-run Packages panel with the one
+// action that matters and where to learn the rest.
+func (a *App) renderOnboarding() {
+	lines := []string{
+		"No project paths registered yet.",
+		"",
+		"Press a and enter a folder — a single project, a monorepo,",
+		"or a folder of projects. Detection is automatic.",
+		"",
+		"Press ? for all keybindings.",
+	}
+	for row, line := range lines {
+		a.detail.SetCell(row, 0, tview.NewTableCell(line).
+			SetTextColor(tcell.ColorGray).
+			SetSelectable(false))
+	}
 }
 
 func (a *App) detailHeader(titles ...string) {

@@ -18,7 +18,7 @@ func (a *App) buildLayout() {
 	root := tview.NewTreeNode("")
 	a.tree.SetRoot(root).SetTopLevel(1)
 	a.tree.SetBorder(true)
-	a.tree.SetTitle(" Sources ")
+	a.tree.SetTitle(" 1 Sources ")
 	a.tree.SetChangedFunc(func(node *tview.TreeNode) {
 		if node == nil {
 			return
@@ -38,7 +38,7 @@ func (a *App) buildLayout() {
 
 	a.detail = tview.NewTable()
 	a.detail.SetBorder(true)
-	a.detail.SetTitle(" Packages ")
+	a.detail.SetTitle(" 2 Packages ")
 	a.detail.SetFixed(1, 0)
 	a.detail.SetSelectable(false, false)
 
@@ -69,6 +69,7 @@ func (a *App) buildLayout() {
 		AddItem(a.bottom, 1, 0, false)
 
 	a.pages = tview.NewPages().AddPage(pageMain, outer, true, true)
+	a.applyFocusStyle()
 	a.tv.SetInputCapture(a.handleKey)
 	// The terminal width drives the help variant; re-rendered on resize.
 	a.tv.SetBeforeDrawFunc(func(screen tcell.Screen) bool {
@@ -78,6 +79,18 @@ func (a *App) buildLayout() {
 		}
 		return false
 	})
+}
+
+// applyFocusStyle highlights the border and title of the panel that owns
+// the keyboard, so focus is visible at a glance and not only implied by
+// the help bar. The command bar is never focusable and keeps defaults.
+func (a *App) applyFocusStyle() {
+	focused, blurred := a.tree.Box, a.detail.Box
+	if a.tableFocused {
+		focused, blurred = a.detail.Box, a.tree.Box
+	}
+	focused.SetBorderColor(tcell.ColorYellow).SetTitleColor(tcell.ColorYellow)
+	blurred.SetBorderColor(tview.Styles.BorderColor).SetTitleColor(tview.Styles.TitleColor)
 }
 
 // renderHelp regenerates the help bar from the keymap for the current

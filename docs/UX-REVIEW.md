@@ -168,10 +168,10 @@ Impact = user-visible value. Effort: **S** ≤ half a day, **M** ≈ 1–2 days,
 |----|-------------|------|--------|--------|-------|
 | UX-01 | Scope keys to the focused panel: `a`/`d`/`r`/`Enter` only in the tree, `Space`/`x`/`/`/`s` only in the table; `q`/`c`/`v`/`m`/`?`/`Tab` stay global | Keymap | High | S | Fixes O-06; the help bar then matches reality · **Shipped** (`add-keymap-safety`) |
 | UX-02 | Confirmation modal before removing a registered path, stating that the folder on disk is untouched | Safety | High | S | Fixes O-07 · §3.3 · **Shipped** (`add-keymap-safety`) |
-| UX-03 | `?` keymap modal, grouped by panel, including the counter legend; move About to `H` | Discoverability | High | M | Fixes O-08, O-18 · §3.2 |
+| UX-03 | `?` keymap modal, grouped by panel, including the counter legend; move About to `H` | Discoverability | High | M | Fixes O-08, O-18 · §3.2 · **Shipped** (`add-discoverability`) |
 | UX-04 | Responsive bottom bar: compact help variants by terminal width, drop the hardcoded 106 columns, minimum-size notice below ~60 cols | Layout | High | M | Fixes O-01 |
-| UX-05 | Aggregate counters on every source node, not just global; keep them visible when folded | Info scent | High | S | Fixes O-19 — counters already exist in `semver.Counters` |
-| UX-06 | First-run empty state in both panels with the `a` call to action | Onboarding | High | S | Fixes O-25 · §3.4 |
+| UX-05 | Aggregate counters on every source node, not just global; keep them visible when folded | Info scent | High | S | Fixes O-19 — counters already exist in `semver.Counters` · **Shipped** (`add-discoverability`) |
+| UX-06 | First-run empty state in both panels with the `a` call to action | Onboarding | High | S | Fixes O-25 · §3.4 · **Shipped** (`add-discoverability`) |
 | UX-07 | Disambiguate counters: `maj/min/pat` for semver, `C/H/M/L` reserved for audit, plus the legend in `?` | Encoding | High | S | Fixes O-18 · **Shipped** (`add-keymap-safety`) |
 | UX-08 | Dedicated fixed-width mark column `[✓]`; the package name keeps its severity colour | Encoding | Med | S | Fixes O-21 |
 
@@ -179,7 +179,7 @@ Impact = user-visible value. Effort: **S** ≤ half a day, **M** ≈ 1–2 days,
 
 | ID | Improvement | Area | Impact | Effort | Notes |
 |----|-------------|------|--------|--------|-------|
-| UX-09 | Highlight the focused panel: border colour plus a number in the title (`1 Sources`, `2 Packages`) | Focus | High | S | Fixes O-03, O-05 |
+| UX-09 | Highlight the focused panel: border colour plus a number in the title (`1 Sources`, `2 Packages`) | Focus | High | S | Fixes O-03, O-05 · **Shipped** (`add-discoverability`) |
 | UX-10 | Braille spinner on in-flight sources, driven by a ticker through the existing `QueueUpdateDraw` choke point | Feedback | High | M | Fixes O-13 |
 | UX-11 | Aggregate scan progress (`scanning 3/5`) in the bottom bar, cleared on completion | Feedback | Med | S | Fixes O-14 |
 | UX-12 | Auto-expiring status messages (~5 s) with a level (`info`/`ok`/`warn`/`error`) and an icon prefix | Feedback | Med | M | Fixes O-15, O-16 |
@@ -372,10 +372,10 @@ Impacto = valor visible para el usuario. Esfuerzo: **S** ≤ medio día, **M** �
 |----|--------|------|---------|----------|-------|
 | UX-01 | Acotar teclas al panel enfocado: `a`/`d`/`r`/`Enter` sólo en el árbol, `Space`/`x`/`/`/`s` sólo en la tabla; `q`/`c`/`v`/`m`/`?`/`Tab` quedan globales | Keymap | Alto | S | Corrige O-06; la barra de ayuda pasa a decir la verdad · **Entregado** (`add-keymap-safety`) |
 | UX-02 | Modal de confirmación antes de quitar un path registrado, aclarando que la carpeta en disco no se toca | Seguridad | Alto | S | Corrige O-07 · §3.3 · **Entregado** (`add-keymap-safety`) |
-| UX-03 | Modal de keymap con `?`, agrupado por panel, incluyendo la leyenda de contadores; mover About a `H` | Descubribilidad | Alto | M | Corrige O-08, O-18 · §3.2 |
+| UX-03 | Modal de keymap con `?`, agrupado por panel, incluyendo la leyenda de contadores; mover About a `H` | Descubribilidad | Alto | M | Corrige O-08, O-18 · §3.2 · **Entregado** (`add-discoverability`) |
 | UX-04 | Barra inferior responsiva: variantes compactas de ayuda según ancho, eliminar las 106 columnas hardcodeadas, aviso de tamaño mínimo bajo ~60 cols | Layout | Alto | M | Corrige O-01 |
-| UX-05 | Contadores agregados en todos los nodos source, no sólo el global; visibles también plegados | Rastro info | Alto | S | Corrige O-19 — los contadores ya existen en `semver.Counters` |
-| UX-06 | Estado vacío de primer arranque en ambos paneles con el call to action de `a` | Onboarding | Alto | S | Corrige O-25 · §3.4 |
+| UX-05 | Contadores agregados en todos los nodos source, no sólo el global; visibles también plegados | Rastro info | Alto | S | Corrige O-19 — los contadores ya existen en `semver.Counters` · **Entregado** (`add-discoverability`) |
+| UX-06 | Estado vacío de primer arranque en ambos paneles con el call to action de `a` | Onboarding | Alto | S | Corrige O-25 · §3.4 · **Entregado** (`add-discoverability`) |
 | UX-07 | Desambiguar contadores: `maj/min/pat` para semver, `C/H/M/L` reservado a audit, más la leyenda en `?` | Codificación | Alto | S | Corrige O-18 · **Entregado** (`add-keymap-safety`) |
 | UX-08 | Columna de marca dedicada de ancho fijo `[✓]`; el nombre del paquete conserva su color de severidad | Codificación | Medio | S | Corrige O-21 |
 
@@ -383,7 +383,7 @@ Impacto = valor visible para el usuario. Esfuerzo: **S** ≤ medio día, **M** �
 
 | ID | Mejora | Área | Impacto | Esfuerzo | Notas |
 |----|--------|------|---------|----------|-------|
-| UX-09 | Resaltar el panel enfocado: color de borde más número en el título (`1 Sources`, `2 Packages`) | Foco | Alto | S | Corrige O-03, O-05 |
+| UX-09 | Resaltar el panel enfocado: color de borde más número en el título (`1 Sources`, `2 Packages`) | Foco | Alto | S | Corrige O-03, O-05 · **Entregado** (`add-discoverability`) |
 | UX-10 | Spinner braille en sources en vuelo, movido por un ticker a través del choke point `QueueUpdateDraw` existente | Feedback | Alto | M | Corrige O-13 |
 | UX-11 | Progreso agregado del scan (`escaneando 3/5`) en la barra inferior, limpiado al terminar | Feedback | Medio | S | Corrige O-14 |
 | UX-12 | Mensajes de estado con auto-expiración (~5 s), nivel (`info`/`ok`/`warn`/`error`) y prefijo de ícono | Feedback | Medio | M | Corrige O-15, O-16 |

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 
 	"github.com/luchrv/lazyncu/audit"
@@ -41,6 +42,14 @@ func (a *App) refreshTree() {
 		root.AddChild(node)
 	}
 
+	if len(a.cfg.Paths) == 0 {
+		for _, hint := range []string{"", "No paths registered.", "Press a to add one."} {
+			root.AddChild(tview.NewTreeNode(hint).
+				SetSelectable(false).
+				SetColor(tcell.ColorGray))
+		}
+	}
+
 	if selectedNode == nil && len(root.GetChildren()) > 0 {
 		selectedNode = root.GetChildren()[0]
 		a.sel = selectedNode.GetReference().(selection)
@@ -69,8 +78,58 @@ func sourceText(src string, st *sourceState) string {
 		return fmt.Sprintf("%s  %s [gray]│ audit n/a[-]",
 			name, updateSummary(countPackages(st.event.Packages)))
 	default:
-		return name
+		agg := aggregateSource(st.event.Projects)
+		return fmt.Sprintf("%s  %s [gray]│[-] %s",
+			name, updateSummary(agg.updates), aggregateAuditText(agg))
 	}
+}
+
+// sourceAggregate sums a source's projects so the source row (and its
+// folded form) carries the same signal as the expanded list.
+type sourceAggregate struct {
+	updates semver.Counters
+	vulns   audit.Counters // summed over successfully audited projects only
+	audited int            // projects with a usable audit
+	failed  int            // projects whose audit failed
+}
+
+func aggregateSource(projects []orchestrator.ProjectResult) sourceAggregate {
+	var agg sourceAggregate
+	for _, pr := range projects {
+		agg.updates.Major += pr.Counters.Major
+		agg.updates.Minor += pr.Counters.Minor
+		agg.updates.Patch += pr.Counters.Patch
+		switch pr.Audit.Status {
+		case audit.StatusOK:
+			agg.audited++
+			agg.vulns.Critical += pr.Audit.Counters.Critical
+			agg.vulns.High += pr.Audit.Counters.High
+			agg.vulns.Moderate += pr.Audit.Counters.Moderate
+			agg.vulns.Low += pr.Audit.Counters.Low
+		case audit.StatusFailed:
+			agg.failed++
+		}
+	}
+	return agg
+}
+
+// aggregateAuditText renders the audit side of a source row: letter sums
+// over audited projects, a ✗ marker when any project's audit failed, and
+// the n/a state when nothing produced a usable audit.
+func aggregateAuditText(agg sourceAggregate) string {
+	switch {
+	case agg.audited == 0 && agg.failed == 0:
+		return "[gray]audit n/a[-]"
+	case agg.vulns.Total() == 0 && agg.failed > 0:
+		return "[red]audit ✗[-]"
+	case agg.vulns.Total() == 0:
+		return "[green]0 vulns[-]"
+	}
+	out := vulnCounterText(agg.vulns)
+	if agg.failed > 0 {
+		out += " [red]✗[-]"
+	}
+	return out
 }
 
 func projectText(pr orchestrator.ProjectResult) string {
@@ -108,10 +167,15 @@ func auditSummary(res audit.Result) string {
 	case audit.StatusFailed:
 		return "[red]audit ✗[-]"
 	}
-	c := res.Counters
-	if c.Total() == 0 {
+	if res.Counters.Total() == 0 {
 		return "[green]0 vulns[-]"
 	}
+	return vulnCounterText(res.Counters)
+}
+
+// vulnCounterText renders non-zero audit letter counters like
+// "[red::b]C1[-:-:-] [red]H2[-]". Callers guarantee Total() > 0.
+func vulnCounterText(c audit.Counters) string {
 	out := ""
 	if c.Critical > 0 {
 		out += fmt.Sprintf("[red::b]C%d[-:-:-] ", c.Critical)
