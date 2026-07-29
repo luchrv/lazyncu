@@ -184,10 +184,10 @@ Impact = user-visible value. Effort: **S** ≤ half a day, **M** ≈ 1–2 days,
 | UX-11 | Aggregate scan progress (`scanning 3/5`) in the bottom bar, cleared on completion | Feedback | Med | S | Fixes O-14 · **Shipped** (`add-scan-feedback`) |
 | UX-12 | Auto-expiring status messages (~5 s) with a level (`info`/`ok`/`warn`/`error`) and an icon prefix | Feedback | Med | M | Fixes O-15, O-16 · **Shipped** (`add-scan-feedback`) |
 | UX-13 | Mark counter in the table footer or title (`2 of 4 marked`) | Density | Med | S | Fixes O-22 |
-| UX-14 | Sort in the packages table (`s` cycles severity → name → current version) | Density | Med | M | Fixes O-12 |
-| UX-15 | Incremental filter (`/`) over the visible table, `Esc` clears | Density | Med | M | Fixes O-12 |
+| UX-14 | Sort in the packages table (`s` cycles severity → name → current version) | Density | Med | M | Fixes O-12 · **Shipped** (`add-table-density`) |
+| UX-15 | Incremental filter (`/`) over the visible table, `Esc` clears | Density | Med | M | Fixes O-12 · **Shipped** (`add-table-density`) |
 | UX-16 | `R` rescans every source, respecting the in-flight guard | Keymap | Med | S | Fixes O-11 |
-| UX-17 | Column sizing: expansion only on `Package` and `Via`, fixed widths for versions and severity, middle-ellipsis on overflow | Density | Med | M | Fixes O-23 |
+| UX-17 | Column sizing: expansion only on `Package` and `Via`, fixed widths for versions and severity, middle-ellipsis on overflow | Density | Med | M | Fixes O-23 · **Shipped** (`add-table-density`) |
 | UX-18 | Command bar: shrink to 3 rows, show `… +N more` when the command exceeds the box; copying always yields the full command | Layout | Med | M | Fixes O-02 |
 | UX-19 | Failed scans: `press r to retry` hint plus the full error reachable in a modal | Errors | Med | M | Fixes O-17 |
 | UX-20 | `Esc` in the tree collapses the current source, then falls back to a no-op message instead of silence | Keymap | Low | S | Fixes O-09 |
@@ -196,7 +196,7 @@ Impact = user-visible value. Effort: **S** ≤ half a day, **M** ≈ 1–2 days,
 
 | ID | Improvement | Area | Impact | Effort | Notes |
 |----|-------------|------|--------|--------|-------|
-| UX-21 | Symbol backup for severity (`▲ major`, `● minor`, `· patch`) and `NO_COLOR` / monochrome mode | A11y | High | M | Fixes O-24 |
+| UX-21 | Symbol backup for severity (`▲ major`, `● minor`, `· patch`) and `NO_COLOR` / monochrome mode | A11y | High | M | Fixes O-24 · **Partially shipped** (`add-table-density`: glyph channel complete; `NO_COLOR` env deferred to UX-22) |
 | UX-22 | Configurable theme in `config.toml` (`[theme]` with named colours), defaulting to the current palette | A11y | Low | L | Complements UX-21 |
 | UX-23 | Disambiguate same-basename sources by showing the shortened parent (`work/api`, `personal/api`) | Info scent | Med | S | Fixes O-20 |
 | UX-24 | Mouse: click a row to mark, click a header to sort; mention the mouse in `?` | Input | Low | M | Fixes O-27 |
@@ -388,10 +388,10 @@ Impacto = valor visible para el usuario. Esfuerzo: **S** ≤ medio día, **M** �
 | UX-11 | Progreso agregado del scan (`escaneando 3/5`) en la barra inferior, limpiado al terminar | Feedback | Medio | S | Corrige O-14 · **Entregado** (`add-scan-feedback`) |
 | UX-12 | Mensajes de estado con auto-expiración (~5 s), nivel (`info`/`ok`/`warn`/`error`) y prefijo de ícono | Feedback | Medio | M | Corrige O-15, O-16 · **Entregado** (`add-scan-feedback`) |
 | UX-13 | Contador de marcas en el pie o título de la tabla (`2 de 4 marcados`) | Densidad | Medio | S | Corrige O-22 |
-| UX-14 | Ordenamiento en la tabla de paquetes (`s` cicla severidad → nombre → versión actual) | Densidad | Medio | M | Corrige O-12 |
-| UX-15 | Filtro incremental (`/`) sobre la tabla visible, `Esc` limpia | Densidad | Medio | M | Corrige O-12 |
+| UX-14 | Ordenamiento en la tabla de paquetes (`s` cicla severidad → nombre → versión actual) | Densidad | Medio | M | Corrige O-12 · **Entregado** (`add-table-density`) |
+| UX-15 | Filtro incremental (`/`) sobre la tabla visible, `Esc` limpia | Densidad | Medio | M | Corrige O-12 · **Entregado** (`add-table-density`) |
 | UX-16 | `R` reescanea todos los sources, respetando la guarda de scan en vuelo | Keymap | Medio | S | Corrige O-11 |
-| UX-17 | Dimensionado de columnas: expansión sólo en `Package` y `Via`, anchos fijos para versiones y severidad, elipsis al medio en overflow | Densidad | Medio | M | Corrige O-23 |
+| UX-17 | Dimensionado de columnas: expansión sólo en `Package` y `Via`, anchos fijos para versiones y severidad, elipsis al medio en overflow | Densidad | Medio | M | Corrige O-23 · **Entregado** (`add-table-density`) |
 | UX-18 | Barra de comando: bajar a 3 filas y mostrar `… +N más` cuando el comando excede la caja; copiar siempre entrega el comando completo | Layout | Medio | M | Corrige O-02 |
 | UX-19 | Scans fallidos: pista `presioná r para reintentar` más el error completo accesible en un modal | Errores | Medio | M | Corrige O-17 |
 | UX-20 | `Esc` en el árbol pliega el source actual y, si no aplica, responde con un mensaje en vez de silencio | Keymap | Bajo | S | Corrige O-09 |
@@ -400,7 +400,7 @@ Impacto = valor visible para el usuario. Esfuerzo: **S** ≤ medio día, **M** �
 
 | ID | Mejora | Área | Impacto | Esfuerzo | Notas |
 |----|--------|------|---------|----------|-------|
-| UX-21 | Respaldo simbólico de severidad (`▲ major`, `● minor`, `· patch`) y modo `NO_COLOR` / monocromo | A11y | Alto | M | Corrige O-24 |
+| UX-21 | Respaldo simbólico de severidad (`▲ major`, `● minor`, `· patch`) y modo `NO_COLOR` / monocromo | A11y | Alto | M | Corrige O-24 · **Parcialmente entregado** (`add-table-density`: canal de glifos completo; `NO_COLOR` env diferido a UX-22) |
 | UX-22 | Tema configurable en `config.toml` (`[theme]` con colores nombrados), default = paleta actual | A11y | Bajo | L | Complementa UX-21 |
 | UX-23 | Desambiguar sources con igual basename mostrando el padre acortado (`work/api`, `personal/api`) | Rastro info | Medio | S | Corrige O-20 |
 | UX-24 | Mouse: click en fila para marcar, click en header para ordenar; mencionar el mouse en `?` | Input | Bajo | M | Corrige O-27 |

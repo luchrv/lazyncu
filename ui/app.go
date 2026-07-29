@@ -47,17 +47,18 @@ type App struct {
 	order []string
 	sel   selection
 
-	pages      *tview.Pages
-	tree       *tview.TreeView
-	detail     *tview.Table
-	cmdBar     *tview.TextView
-	statusMsg  *tview.TextView
-	progress   *tview.TextView
-	helpBar    *tview.TextView
-	bottom     *tview.Flex
-	showVulns  bool
-	msgsHidden bool
-	lastMsg    string
+	pages       *tview.Pages
+	tree        *tview.TreeView
+	detail      *tview.Table
+	cmdBar      *tview.TextView
+	statusMsg   *tview.TextView
+	progress    *tview.TextView
+	helpBar     *tview.TextView
+	filterInput *tview.InputField
+	bottom      *tview.Flex
+	showVulns   bool
+	msgsHidden  bool
+	lastMsg     string
 	// msgGen increments on every status message; expiry timers compare
 	// against it so they never clear a newer message. expiresGen records
 	// the last generation that scheduled an expiry (errors do not).
@@ -70,6 +71,9 @@ type App struct {
 	// starting a second ticker goroutine.
 	spinFrame int
 	spinning  bool
+	// sortMode and filterText shape the detail table; session-only.
+	sortMode   sortMode
+	filterText string
 
 	// tableFocused: keyboard focus is on the Packages table (Tab toggles).
 	tableFocused bool
@@ -329,6 +333,29 @@ func (a *App) toggleVulns() {
 	a.showVulns = !a.showVulns
 	a.refreshDetail()
 	a.renderHelp()
+}
+
+// cycleSort advances the detail-table order: scan → severity → name.
+func (a *App) cycleSort() {
+	a.sortMode = (a.sortMode + 1) % 3
+	a.refreshDetail()
+}
+
+// escapeTable peels one layer: an active filter clears first; without one,
+// focus returns to the tree.
+func (a *App) escapeTable() {
+	if a.filterText != "" {
+		a.clearFilter()
+		return
+	}
+	a.setTableFocus(false)
+}
+
+// clearFilter drops the filter and re-renders the full table.
+func (a *App) clearFilter() {
+	a.filterText = ""
+	a.filterInput.SetText("")
+	a.refreshDetail()
 }
 
 // clearMarksSelected clears the selected entry's marks and refreshes the

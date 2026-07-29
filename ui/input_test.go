@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gdamore/tcell/v2"
+
 	"github.com/luchrv/lazyncu/config"
 	"github.com/luchrv/lazyncu/orchestrator"
 	"github.com/luchrv/lazyncu/scanner"
@@ -274,5 +276,80 @@ func TestHintGoneOncePathRegistered(t *testing.T) {
 		if node.GetText() == "No paths registered." {
 			t.Fatal("hint must disappear once a path is registered")
 		}
+	}
+}
+
+func TestSortAndFilterKeysScopedToTableViews(t *testing.T) {
+	for _, r := range []rune{'s', '/'} {
+		b, ok := lookupDispatch(runeEvent(r))
+		if !ok {
+			t.Fatalf("%q must be dispatchable", r)
+		}
+		if !b.activeIn(ctxTablePackages) || !b.activeIn(ctxTableVulns) {
+			t.Errorf("%q must be active in both table views", r)
+		}
+		if b.activeIn(ctxTree) {
+			t.Errorf("%q must not be active in the tree", r)
+		}
+	}
+}
+
+func TestCycleSortWraps(t *testing.T) {
+	a := newTestApp(t)
+	a.tableFocused = true
+
+	a.handleKey(runeEvent('s'))
+	if a.sortMode != sortSeverity {
+		t.Errorf("first s = %v, want severity", a.sortMode)
+	}
+	a.handleKey(runeEvent('s'))
+	a.handleKey(runeEvent('s'))
+	if a.sortMode != sortScan {
+		t.Errorf("cycle must wrap back to scan order, got %v", a.sortMode)
+	}
+}
+
+func TestEscapePeelsFilterBeforeTree(t *testing.T) {
+	// Arrange — focused table with an active filter.
+	a := newTestApp(t)
+	a.setTableFocus(true)
+	a.filterText = "axi"
+
+	// Act — first Esc clears the filter, keeps focus.
+	a.handleKey(keyEvent(tcell.KeyEscape))
+	if a.filterText != "" {
+		t.Error("first Esc must clear the filter")
+	}
+	if !a.tableFocused {
+		t.Error("first Esc must keep the table focused")
+	}
+
+	// Act — second Esc leaves the table.
+	a.handleKey(keyEvent(tcell.KeyEscape))
+	if a.tableFocused {
+		t.Error("second Esc must return focus to the tree")
+	}
+}
+
+func TestFilteredCommandStillUsesAllMarks(t *testing.T) {
+	// Arrange — global source with two marked packages, filter hiding one.
+	a := newTestApp(t)
+	globalSel(a)
+	st := a.state[orchestrator.SourceGlobal]
+	st.loading = false
+	st.event = orchestrator.Event{Source: orchestrator.SourceGlobal, Packages: []scanner.Package{
+		{Name: "axios", Current: "0.21.1", New: "1.0.0"},
+		{Name: "chalk", Current: "4.1.0", New: "5.0.0"},
+	}}
+	a.toggleMark("axios")
+	a.toggleMark("chalk")
+	a.filterText = "axi" // hides chalk
+
+	// Act
+	update, _ := a.currentCommands()
+
+	// Assert — visibility must not narrow the command.
+	if !strings.Contains(update, "chalk@5.0.0") {
+		t.Errorf("command must include hidden marked package: %q", update)
 	}
 }

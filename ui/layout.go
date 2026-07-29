@@ -52,6 +52,22 @@ func (a *App) buildLayout() {
 	a.progress = tview.NewTextView().SetDynamicColors(true)
 	a.helpBar = tview.NewTextView().SetDynamicColors(true).SetTextAlign(tview.AlignRight)
 
+	// Inline filter input: collapsed until / expands it. While it has
+	// focus the InputField guard in handleKey keeps every dashboard key
+	// (including q) out of the way.
+	a.filterInput = tview.NewInputField().SetLabel("/ ").SetFieldWidth(0)
+	a.filterInput.SetChangedFunc(func(text string) {
+		a.filterText = text
+		a.refreshDetail()
+	})
+	a.filterInput.SetDoneFunc(func(key tcell.Key) {
+		if key == tcell.KeyEscape {
+			a.filterText = ""
+			a.filterInput.SetText("")
+		}
+		a.closeFilterInput()
+	})
+
 	right := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(a.detail, 0, 1, false).
 		AddItem(a.cmdBar, cmdBarRows, 0, false)
@@ -65,6 +81,7 @@ func (a *App) buildLayout() {
 	// the progress or the help. Progress and help zones are resized to
 	// their content (refreshProgress / renderHelp).
 	a.bottom = tview.NewFlex().
+		AddItem(a.filterInput, 0, 0, false).
 		AddItem(a.statusMsg, 0, 1, false).
 		AddItem(a.progress, 0, 0, false).
 		AddItem(a.helpBar, 0, 0, false)
@@ -84,6 +101,24 @@ func (a *App) buildLayout() {
 		}
 		return false
 	})
+}
+
+// openFilter expands the inline filter input in place of the message zone
+// and hands it the keyboard.
+func (a *App) openFilter() {
+	a.filterInput.SetText(a.filterText)
+	a.bottom.ResizeItem(a.filterInput, 0, 1)
+	a.bottom.ResizeItem(a.statusMsg, 0, 0)
+	a.tv.SetFocus(a.filterInput)
+}
+
+// closeFilterInput collapses the input (keeping whatever filter is set)
+// and returns focus to the table.
+func (a *App) closeFilterInput() {
+	a.bottom.ResizeItem(a.filterInput, 0, 0)
+	a.bottom.ResizeItem(a.statusMsg, 0, 1)
+	a.setTableFocus(true)
+	a.refreshDetail()
 }
 
 // progressText renders the aggregate scan progress segment.
