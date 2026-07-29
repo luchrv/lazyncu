@@ -3,6 +3,10 @@ package ui
 import (
 	"strings"
 	"testing"
+
+	"github.com/luchrv/lazyncu/config"
+	"github.com/luchrv/lazyncu/orchestrator"
+	"github.com/luchrv/lazyncu/scanner"
 )
 
 func TestTreeKeyInTableShowsHintAndDoesNotFire(t *testing.T) {
@@ -172,5 +176,103 @@ func TestRescanBlockedWhileScanning(t *testing.T) {
 	}
 	if msg := a.statusMsg.GetText(true); !strings.Contains(msg, "still scanning") {
 		t.Errorf("expected in-flight guard message, got %q", msg)
+	}
+}
+
+func TestKeysModalIsInert(t *testing.T) {
+	// Arrange
+	a := newTestApp(t)
+	registerPath(a, "/tmp/project")
+	a.handleKey(runeEvent('?'))
+
+	if !a.pages.HasPage(pageKeys) {
+		t.Fatal("'?' must open the cheat sheet")
+	}
+	if got := a.currentContext(); got != ctxModal {
+		t.Fatalf("cheat-sheet context = %d, want modal", got)
+	}
+
+	// Act — dashboard keys under the modal.
+	for _, r := range []rune{'a', 'd', 'v', 'r', 'h'} {
+		if got := a.handleKey(runeEvent(r)); got != nil {
+			t.Errorf("%q must be swallowed while the cheat sheet is open", r)
+		}
+	}
+
+	// Assert — nothing leaked.
+	if a.pages.HasPage(pageAddPath) || a.pages.HasPage(pageConfirm) || a.pages.HasPage(pageAbout) {
+		t.Error("dashboard keys acted underneath the cheat sheet")
+	}
+
+	// Act — '?' closes it again.
+	a.handleKey(runeEvent('?'))
+	if a.pages.HasPage(pageKeys) {
+		t.Error("'?' must close the cheat sheet")
+	}
+}
+
+func TestFocusJumpKeys(t *testing.T) {
+	a := newTestApp(t)
+
+	a.handleKey(runeEvent('2'))
+	if !a.tableFocused {
+		t.Error("'2' must focus the packages table")
+	}
+	a.handleKey(runeEvent('1'))
+	if a.tableFocused {
+		t.Error("'1' must focus the sources tree")
+	}
+}
+
+func TestFirstRunShowsTreeHintAndOnboarding(t *testing.T) {
+	// Arrange — no paths registered, global scan finished empty.
+	a := newTestApp(t)
+	a.state[orchestrator.SourceGlobal].loading = false
+
+	// Act
+	a.refreshAll()
+
+	// Assert — tree carries the hint entries.
+	children := a.tree.GetRoot().GetChildren()
+	if len(children) != 4 { // Global + spacer + two hint lines
+		t.Fatalf("tree children = %d, want 4", len(children))
+	}
+	if got := children[2].GetText(); got != "No paths registered." {
+		t.Errorf("hint line = %q", got)
+	}
+
+	// Assert — Packages panel shows onboarding, not "up to date".
+	if got := a.detail.GetCell(0, 0).Text; got != "No project paths registered yet." {
+		t.Errorf("onboarding first line = %q", got)
+	}
+}
+
+func TestOnboardingNeverHidesGlobalResults(t *testing.T) {
+	a := newTestApp(t)
+	st := a.state[orchestrator.SourceGlobal]
+	st.loading = false
+	st.event = orchestrator.Event{
+		Source:   orchestrator.SourceGlobal,
+		Packages: []scanner.Package{{Name: "eslint", Current: "10.7.0", New: "10.8.0"}},
+	}
+
+	a.refreshAll()
+
+	if got := a.detail.GetCell(0, 0).Text; got != "Package" {
+		t.Errorf("global rows must win over onboarding, header = %q", got)
+	}
+}
+
+func TestHintGoneOncePathRegistered(t *testing.T) {
+	a := newTestApp(t)
+	a.cfg = config.Config{Paths: []config.Path{{Path: "/tmp/project"}}}
+	registerPath(a, "/tmp/project")
+
+	a.refreshAll()
+
+	for _, node := range a.tree.GetRoot().GetChildren() {
+		if node.GetText() == "No paths registered." {
+			t.Fatal("hint must disappear once a path is registered")
+		}
 	}
 }

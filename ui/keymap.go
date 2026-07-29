@@ -39,7 +39,10 @@ type binding struct {
 	desc     string       // action label; "" hides the row from help
 	contexts []keyContext // contexts where the binding is active
 	compact  bool         // kept in the compact help variant
-	do       func(a *App) // action; nil for help-only rows
+	// barHidden keeps the row out of the bottom help bar while still
+	// listing it in the cheat-sheet modal (e.g. the 1/2 focus jumps).
+	barHidden bool
+	do        func(a *App) // action; nil for help-only rows
 }
 
 // keymap lists every binding in help-bar order. Labels use the
@@ -73,6 +76,12 @@ func init() {
 			do: func(a *App) { a.toggleMessages() }},
 		{r: 'h', label: "h", desc: "about", contexts: allPanels, compact: true,
 			do: func(a *App) { a.toggleAbout() }},
+		{r: '?', label: "?", desc: "help", contexts: allPanels, compact: true,
+			do: func(a *App) { a.toggleKeys() }},
+		{r: '1', label: "1", desc: "focus sources", contexts: allPanels, barHidden: true,
+			do: func(a *App) { a.setTableFocus(false) }},
+		{r: '2', label: "2", desc: "focus packages", contexts: allPanels, barHidden: true,
+			do: func(a *App) { a.setTableFocus(true) }},
 		{key: tcell.KeyTab, label: "Tab", desc: "pkgs", contexts: treeOnly, compact: true}, // tree wording
 		{key: tcell.KeyTab, label: "Tab[-]/[yellow]Esc", desc: "back", contexts: tableViews, // table wording
 			compact: true},
@@ -128,7 +137,7 @@ func hintFor(b binding, cur keyContext) string {
 func helpText(ctx keyContext, compact bool) string {
 	parts := make([]string, 0, len(keymap))
 	for _, b := range keymap {
-		if b.desc == "" || !b.activeIn(ctx) {
+		if b.desc == "" || b.barHidden || !b.activeIn(ctx) {
 			continue
 		}
 		if compact && !b.compact {
@@ -137,6 +146,62 @@ func helpText(ctx keyContext, compact bool) string {
 		parts = append(parts, fmt.Sprintf("[yellow]%s[-] %s", b.label, b.desc))
 	}
 	return strings.Join(parts, "  ")
+}
+
+// legendLines is the counter legend shown in the cheat sheet: shapes for
+// semver, letters for audit — the two alphabets that must never collide.
+func legendLines() []string {
+	return []string{
+		"[red]▲[-] major   [yellow]●[-] minor    [green]▪[-] patch",
+		"[red]C[-] critical [red]H[-] high [yellow]M[-] moderate [gray]L[-] low",
+	}
+}
+
+// keysGroup names the cheat-sheet group a binding belongs to, keyed off
+// its context set: everywhere → Global, tree-only → Sources, else Packages.
+func keysGroup(b binding) string {
+	switch {
+	case b.activeIn(ctxTree) && b.activeIn(ctxTablePackages):
+		return "Global"
+	case b.activeIn(ctxTree):
+		return "Sources"
+	default:
+		return "Packages"
+	}
+}
+
+// keysText renders the full cheat-sheet body from the keymap: every
+// advertised binding (including bar-hidden and help-only rows) grouped by
+// context, followed by the counter legend.
+func keysText() string {
+	groups := map[string][]binding{}
+	for _, b := range keymap {
+		if b.desc == "" {
+			continue
+		}
+		g := keysGroup(b)
+		groups[g] = append(groups[g], b)
+	}
+
+	var lines []string
+	for _, g := range []string{"Global", "Sources", "Packages"} {
+		lines = append(lines, fmt.Sprintf("[::b]%s[::-]", g))
+		width := 0
+		for _, b := range groups[g] {
+			width = max(width, printableWidth(b.label))
+		}
+		for _, b := range groups[g] {
+			pad := strings.Repeat(" ", width-printableWidth(b.label))
+			lines = append(lines, fmt.Sprintf("  [yellow]%s[-]%s  %s", b.label, pad, b.desc))
+		}
+		lines = append(lines, "")
+	}
+	lines = append(lines, "[::b]Legend[::-]")
+	for _, l := range legendLines() {
+		lines = append(lines, "  "+l)
+	}
+	lines = append(lines, "", "[yellow]Esc[-] / [yellow]?[-] close")
+	return strings.Join(lines, "\n")
 }
 
 // minMessageZone is the column count always reserved for status messages

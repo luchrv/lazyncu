@@ -247,3 +247,55 @@ func TestCurrentContextResolution(t *testing.T) {
 		t.Errorf("confirm-open context = %d, want modal", got)
 	}
 }
+
+func TestBarHiddenRowsExcludedFromHelpBar(t *testing.T) {
+	for _, ctx := range []keyContext{ctxTree, ctxTablePackages, ctxTableVulns} {
+		help := helpText(ctx, false)
+		for _, forbidden := range []string{"focus sources", "focus packages"} {
+			if strings.Contains(help, forbidden) {
+				t.Errorf("bar must not advertise bar-hidden binding %q (ctx %d)", forbidden, ctx)
+			}
+		}
+	}
+}
+
+func TestHelpKeysAreGlobalDispatch(t *testing.T) {
+	for _, r := range []rune{'?', '1', '2'} {
+		b, ok := lookupDispatch(runeEvent(r))
+		if !ok {
+			t.Fatalf("%q must be dispatchable", r)
+		}
+		for _, ctx := range []keyContext{ctxTree, ctxTablePackages, ctxTableVulns} {
+			if !b.activeIn(ctx) {
+				t.Errorf("%q must be active in context %d", r, ctx)
+			}
+		}
+	}
+}
+
+func TestHelpBarAdvertisesQuestionMark(t *testing.T) {
+	if !strings.Contains(helpText(ctxTree, true), "[yellow]?[-] help") {
+		t.Error("compact help must advertise the cheat sheet")
+	}
+}
+
+func TestKeysTextGroupsAndLegend(t *testing.T) {
+	// Assert on the printable text — what the user actually sees.
+	text := colorTag.ReplaceAllString(keysText(), "")
+
+	for _, want := range []string{
+		"Global", "Sources", "Packages", // group headers
+		"quit", "help", "focus sources", "focus packages", // globals incl. bar-hidden
+		"add path", "del path", "fold", // tree group
+		"mark", "clear", "move", "back", // table group
+		"▲ major", "● minor", "▪ patch", // legend
+		"C critical", "H high", "M moderate", "L low",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("cheat sheet missing %q", want)
+		}
+	}
+	if strings.Index(text, "Global") > strings.Index(text, "Sources") {
+		t.Error("Global group must come before Sources")
+	}
+}
