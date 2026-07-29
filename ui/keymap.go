@@ -61,6 +61,10 @@ func init() {
 			do: func(a *App) { a.toggleMarkUnderCursor() }},
 		{r: 'x', label: "x", desc: "clear", contexts: packagesOnly,
 			do: func(a *App) { a.clearMarksSelected() }},
+		{r: 's', label: "s", desc: "sort", contexts: tableViews,
+			do: func(a *App) { a.cycleSort() }},
+		{r: '/', label: "/", desc: "filter", contexts: tableViews,
+			do: func(a *App) { a.openFilter() }},
 		{r: 'c', label: "c", desc: "copy cmd", contexts: allPanels, compact: true,
 			do: func(a *App) { a.copyCommand() }},
 		{r: 'v', label: "v", desc: "vulns", contexts: allPanels,
@@ -87,8 +91,8 @@ func init() {
 			compact: true},
 		{key: tcell.KeyTab, contexts: allPanels, // dispatch row behind both Tab help rows
 			do: func(a *App) { a.setTableFocus(!a.tableFocused) }},
-		{key: tcell.KeyEscape, contexts: tableViews,
-			do: func(a *App) { a.setTableFocus(false) }},
+		{key: tcell.KeyEscape, contexts: tableViews, // peels: filter first, then tree
+			do: func(a *App) { a.escapeTable() }},
 	}
 }
 

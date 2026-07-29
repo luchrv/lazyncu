@@ -77,7 +77,9 @@ reflects exactly what works right now.
 | `Enter` | sources | Collapse/expand the selected source's project list |
 | `Space` | packages table | Mark/unmark a package — the update command narrows to the marked ones |
 | `x` | packages table | Clear all marks of the current project |
-| `Esc` | packages table | Back to the sources tree |
+| `s` | table (both views) | Cycle row order: scan → severity → name (shown in the title) |
+| `/` | table (both views) | Incremental filter by package name — `Enter` keeps it, `Esc` clears |
+| `Esc` | packages table | Clear the active filter first; back to the sources tree otherwise |
 | `↑↓` | — | Navigate sources/projects, or table rows when the table is focused |
 
 Severity counters in the sources panel use two distinct alphabets — shapes
