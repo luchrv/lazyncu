@@ -180,9 +180,9 @@ Impact = user-visible value. Effort: **S** ≤ half a day, **M** ≈ 1–2 days,
 | ID | Improvement | Area | Impact | Effort | Notes |
 |----|-------------|------|--------|--------|-------|
 | UX-09 | Highlight the focused panel: border colour plus a number in the title (`1 Sources`, `2 Packages`) | Focus | High | S | Fixes O-03, O-05 · **Shipped** (`add-discoverability`) |
-| UX-10 | Braille spinner on in-flight sources, driven by a ticker through the existing `QueueUpdateDraw` choke point | Feedback | High | M | Fixes O-13 |
-| UX-11 | Aggregate scan progress (`scanning 3/5`) in the bottom bar, cleared on completion | Feedback | Med | S | Fixes O-14 |
-| UX-12 | Auto-expiring status messages (~5 s) with a level (`info`/`ok`/`warn`/`error`) and an icon prefix | Feedback | Med | M | Fixes O-15, O-16 |
+| UX-10 | Braille spinner on in-flight sources, driven by a ticker through the existing `QueueUpdateDraw` choke point | Feedback | High | M | Fixes O-13 · **Shipped** (`add-scan-feedback`) |
+| UX-11 | Aggregate scan progress (`scanning 3/5`) in the bottom bar, cleared on completion | Feedback | Med | S | Fixes O-14 · **Shipped** (`add-scan-feedback`) |
+| UX-12 | Auto-expiring status messages (~5 s) with a level (`info`/`ok`/`warn`/`error`) and an icon prefix | Feedback | Med | M | Fixes O-15, O-16 · **Shipped** (`add-scan-feedback`) |
 | UX-13 | Mark counter in the table footer or title (`2 of 4 marked`) | Density | Med | S | Fixes O-22 |
 | UX-14 | Sort in the packages table (`s` cycles severity → name → current version) | Density | Med | M | Fixes O-12 |
 | UX-15 | Incremental filter (`/`) over the visible table, `Esc` clears | Density | Med | M | Fixes O-12 |
@@ -384,9 +384,9 @@ Impacto = valor visible para el usuario. Esfuerzo: **S** ≤ medio día, **M** �
 | ID | Mejora | Área | Impacto | Esfuerzo | Notas |
 |----|--------|------|---------|----------|-------|
 | UX-09 | Resaltar el panel enfocado: color de borde más número en el título (`1 Sources`, `2 Packages`) | Foco | Alto | S | Corrige O-03, O-05 · **Entregado** (`add-discoverability`) |
-| UX-10 | Spinner braille en sources en vuelo, movido por un ticker a través del choke point `QueueUpdateDraw` existente | Feedback | Alto | M | Corrige O-13 |
-| UX-11 | Progreso agregado del scan (`escaneando 3/5`) en la barra inferior, limpiado al terminar | Feedback | Medio | S | Corrige O-14 |
-| UX-12 | Mensajes de estado con auto-expiración (~5 s), nivel (`info`/`ok`/`warn`/`error`) y prefijo de ícono | Feedback | Medio | M | Corrige O-15, O-16 |
+| UX-10 | Spinner braille en sources en vuelo, movido por un ticker a través del choke point `QueueUpdateDraw` existente | Feedback | Alto | M | Corrige O-13 · **Entregado** (`add-scan-feedback`) |
+| UX-11 | Progreso agregado del scan (`escaneando 3/5`) en la barra inferior, limpiado al terminar | Feedback | Medio | S | Corrige O-14 · **Entregado** (`add-scan-feedback`) |
+| UX-12 | Mensajes de estado con auto-expiración (~5 s), nivel (`info`/`ok`/`warn`/`error`) y prefijo de ícono | Feedback | Medio | M | Corrige O-15, O-16 · **Entregado** (`add-scan-feedback`) |
 | UX-13 | Contador de marcas en el pie o título de la tabla (`2 de 4 marcados`) | Densidad | Medio | S | Corrige O-22 |
 | UX-14 | Ordenamiento en la tabla de paquetes (`s` cicla severidad → nombre → versión actual) | Densidad | Medio | M | Corrige O-12 |
 | UX-15 | Filtro incremental (`/`) sobre la tabla visible, `Esc` limpia | Densidad | Medio | M | Corrige O-12 |

@@ -20,9 +20,10 @@ func (a *App) refreshTree() {
 	root.ClearChildren()
 
 	var selectedNode *tview.TreeNode
+	spinner := spinnerGlyph(a.spinFrame)
 	for _, src := range a.order {
 		st := a.state[src]
-		node := tview.NewTreeNode(sourceText(src, st)).
+		node := tview.NewTreeNode(sourceText(src, st, spinner)).
 			SetReference(selection{source: src, projectIdx: -1})
 		if node.GetReference() == a.sel {
 			selectedNode = node
@@ -64,14 +65,22 @@ func foldIndicator(collapsed bool) string {
 	return "▾ "
 }
 
-func sourceText(src string, st *sourceState) string {
+// spinnerFrames are the braille frames cycled while a source scans.
+var spinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+
+// spinnerGlyph returns the frame for an ever-increasing tick counter.
+func spinnerGlyph(frame int) string {
+	return spinnerFrames[frame%len(spinnerFrames)]
+}
+
+func sourceText(src string, st *sourceState, spinner string) string {
 	name := "Global (npm -g)"
 	if src != orchestrator.SourceGlobal {
 		name = filepath.Base(src)
 	}
 	switch {
 	case st.loading:
-		return fmt.Sprintf("%s  [gray]scanning…[-]", name)
+		return fmt.Sprintf("%s  [gray]%s scanning…[-]", name, spinner)
 	case st.event.Err != nil:
 		return fmt.Sprintf("%s  [red]✗ scan failed[-]", name)
 	case src == orchestrator.SourceGlobal:

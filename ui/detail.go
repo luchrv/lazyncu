@@ -36,7 +36,7 @@ func (a *App) renderPackages() {
 	}
 	switch {
 	case st.loading:
-		a.detailMessage("scanning…")
+		a.detailMessage(spinnerGlyph(a.spinFrame) + " scanning…")
 		return
 	case st.event.Err != nil:
 		a.detailMessage("scan failed: " + st.event.Err.Error())

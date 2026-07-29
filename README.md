@@ -90,6 +90,11 @@ keeps its signal:
 | `▲3 ●5 ▪2` | 3 major, 5 minor, 2 patch updates pending |
 | `C1 H2 M3 L4` | 1 critical, 2 high, 3 moderate, 4 low vulnerabilities |
 
+While sources scan, their rows animate a spinner and the bottom bar shows
+aggregate progress (`scanning 3/5`). Status messages carry a severity icon
+(`·` info, `✓` ok, `!` warning, `✗` error) and clear themselves after a few
+seconds — errors stay until replaced.
+
 Mark packages with `Space` to narrow the update command to just those:
 
 ![package selection demo](assets/demo/select.gif)

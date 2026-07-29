@@ -52,17 +52,24 @@ type App struct {
 	detail     *tview.Table
 	cmdBar     *tview.TextView
 	statusMsg  *tview.TextView
+	progress   *tview.TextView
 	helpBar    *tview.TextView
 	bottom     *tview.Flex
 	showVulns  bool
 	msgsHidden bool
 	lastMsg    string
-	// msgGen increments on every status message; expired hint timers
-	// compare against it so they never clear a newer message.
-	msgGen int
+	// msgGen increments on every status message; expiry timers compare
+	// against it so they never clear a newer message. expiresGen records
+	// the last generation that scheduled an expiry (errors do not).
+	msgGen     int
+	expiresGen int
 	// screenW is the last observed terminal width, used to pick the help
 	// variant that still leaves the message zone room.
 	screenW int
+	// spinFrame advances on every spinner tick; spinning guards against
+	// starting a second ticker goroutine.
+	spinFrame int
+	spinning  bool
 
 	// tableFocused: keyboard focus is on the Packages table (Tab toggles).
 	tableFocused bool
@@ -183,38 +190,115 @@ func (a *App) refreshAll() {
 	a.refreshTree()
 	a.refreshDetail()
 	a.refreshCommandBar()
+	a.refreshProgress()
+	a.ensureSpinner()
 }
 
-// setStatus shows a transient message in the left status zone; the key help
-// on the right stays untouched. The last message is remembered so toggling
-// the zone back on restores it.
-func (a *App) setStatus(format string, args ...any) {
+// anyLoading reports whether any source's scan is still in flight.
+func (a *App) anyLoading() bool {
+	for _, st := range a.state {
+		if st.loading {
+			return true
+		}
+	}
+	return false
+}
+
+// scanProgress counts finished sources against the total.
+func (a *App) scanProgress() (done, total int) {
+	total = len(a.order)
+	for _, src := range a.order {
+		if !a.state[src].loading {
+			done++
+		}
+	}
+	return done, total
+}
+
+// spinnerInterval is the spinner frame cadence.
+const spinnerInterval = 120 * time.Millisecond
+
+// ensureSpinner starts the single spinner goroutine when something is
+// loading. Every frame is applied through the QueueUpdateDraw choke point;
+// the goroutine stops itself once no source is loading.
+func (a *App) ensureSpinner() {
+	if a.spinning || !a.anyLoading() {
+		return
+	}
+	a.spinning = true
+	go func() {
+		ticker := time.NewTicker(spinnerInterval)
+		defer ticker.Stop()
+		for range ticker.C {
+			stopped := false
+			a.tv.QueueUpdateDraw(func() {
+				if !a.anyLoading() {
+					a.spinning = false
+					stopped = true
+					return
+				}
+				a.spinFrame++
+				a.refreshTree()
+				a.refreshDetail()
+			})
+			if stopped {
+				return
+			}
+		}
+	}()
+}
+
+// msgLevel is the severity of a status message; it decides the icon and
+// color in one place, so severity survives monochrome terminals.
+type msgLevel int
+
+const (
+	msgInfo msgLevel = iota
+	msgOK
+	msgWarn
+	msgError
+)
+
+// decorate prefixes the level icon and applies the level color.
+func (l msgLevel) decorate(text string) string {
+	switch l {
+	case msgOK:
+		return "[green]✓[-] " + text
+	case msgWarn:
+		return "[yellow]! " + text + "[-]"
+	case msgError:
+		return "[red]✗ " + text + "[-]"
+	default:
+		return "[gray]· " + text + "[-]"
+	}
+}
+
+// msgTTL is how long non-error messages stay visible.
+const msgTTL = 5 * time.Second
+
+// setStatus shows a leveled message in the left status zone; the key help
+// on the right stays untouched. Info/ok/warn messages expire after msgTTL
+// under the generation guard; errors persist until replaced.
+func (a *App) setStatus(level msgLevel, format string, args ...any) {
 	a.msgGen++
-	a.lastMsg = fmt.Sprintf(format, args...)
+	a.lastMsg = level.decorate(fmt.Sprintf(format, args...))
 	if !a.msgsHidden {
 		a.statusMsg.SetText(a.lastMsg)
 	}
-}
-
-// hintTTL is how long an out-of-context teaching hint stays visible.
-const hintTTL = 5 * time.Second
-
-// showHint displays a teaching hint that clears itself after hintTTL
-// unless a newer message replaced it in the meantime.
-func (a *App) showHint(msg string) {
-	if msg == "" {
+	if level == msgError {
 		return
 	}
-	a.setStatus("[yellow]%s[-]", msg)
+	a.expiresGen = a.msgGen
 	gen := a.msgGen
-	time.AfterFunc(hintTTL, func() {
-		a.tv.QueueUpdateDraw(func() { a.clearHintIfCurrent(gen) })
+	time.AfterFunc(msgTTL, func() {
+		a.tv.QueueUpdateDraw(func() { a.clearIfCurrent(gen) })
 	})
 }
 
-// clearHintIfCurrent clears the status zone only while gen still identifies
-// the visible message: an expired hint must never erase a newer message.
-func (a *App) clearHintIfCurrent(gen int) {
+// clearIfCurrent clears the status zone only while gen still identifies
+// the visible message: an expired message must never erase a newer one,
+// and an expired message is forgotten — `m` does not resurrect it.
+func (a *App) clearIfCurrent(gen int) {
 	if a.msgGen != gen {
 		return
 	}

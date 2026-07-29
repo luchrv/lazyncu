@@ -59,23 +59,86 @@ func TestConfirmRemoveTextMentionsDiskSafety(t *testing.T) {
 func TestClearHintIfCurrentGenerationGuard(t *testing.T) {
 	// Arrange
 	a := newTestApp(t)
-	a.setStatus("old hint")
+	a.setStatus(msgInfo, "old hint")
 	staleGen := a.msgGen
-	a.setStatus("newer message")
+	a.setStatus(msgInfo, "newer message")
 
 	// Act — a stale hint timer fires after a newer message was set.
-	a.clearHintIfCurrent(staleGen)
+	a.clearIfCurrent(staleGen)
 
 	// Assert
-	if got := a.statusMsg.GetText(true); got != "newer message" {
+	if got := a.statusMsg.GetText(true); got != "· newer message" {
 		t.Errorf("stale timer cleared a newer message: %q", got)
 	}
 
 	// Act — the timer matching the visible message clears it.
-	a.clearHintIfCurrent(a.msgGen)
+	a.clearIfCurrent(a.msgGen)
 
 	// Assert
 	if got := a.statusMsg.GetText(true); got != "" {
 		t.Errorf("current hint was not cleared: %q", got)
+	}
+}
+
+func TestMessageLevelDecoration(t *testing.T) {
+	cases := []struct {
+		level msgLevel
+		want  string
+	}{
+		{msgInfo, "[gray]· hello[-]"},
+		{msgOK, "[green]✓[-] hello"},
+		{msgWarn, "[yellow]! hello[-]"},
+		{msgError, "[red]✗ hello[-]"},
+	}
+	for _, tc := range cases {
+		if got := tc.level.decorate("hello"); got != tc.want {
+			t.Errorf("level %d: got %q, want %q", tc.level, got, tc.want)
+		}
+	}
+}
+
+func TestSetStatusExpiryClearsLastMsg(t *testing.T) {
+	// Arrange
+	a := newTestApp(t)
+	a.setStatus(msgOK, "copied")
+	gen := a.msgGen
+
+	// Act — the expiry timer fires for the live message.
+	a.clearIfCurrent(gen)
+
+	// Assert — zone and memory cleared: `m` must not resurrect it.
+	if got := a.statusMsg.GetText(true); got != "" {
+		t.Errorf("expired message still visible: %q", got)
+	}
+	if a.lastMsg != "" {
+		t.Errorf("expired message must clear lastMsg, got %q", a.lastMsg)
+	}
+	a.toggleMessages()
+	a.toggleMessages()
+	if got := a.statusMsg.GetText(true); got != "" {
+		t.Errorf("'m' resurrected an expired message: %q", got)
+	}
+}
+
+func TestErrorMessagesDoNotExpire(t *testing.T) {
+	a := newTestApp(t)
+
+	a.setStatus(msgError, "clipboard unavailable")
+
+	if a.expiresGen == a.msgGen {
+		t.Error("error messages must not schedule expiry")
+	}
+	if got := a.statusMsg.GetText(true); got != "✗ clipboard unavailable" {
+		t.Errorf("error text = %q", got)
+	}
+}
+
+func TestNonErrorMessagesScheduleExpiry(t *testing.T) {
+	a := newTestApp(t)
+
+	a.setStatus(msgInfo, "rescanning")
+
+	if a.expiresGen != a.msgGen {
+		t.Error("info messages must schedule expiry")
 	}
 }

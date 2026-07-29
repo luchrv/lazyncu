@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"fmt"
+
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
@@ -47,6 +49,7 @@ func (a *App) buildLayout() {
 	a.cmdBar.SetTitle(" Command (copy with c) ")
 
 	a.statusMsg = tview.NewTextView().SetDynamicColors(true)
+	a.progress = tview.NewTextView().SetDynamicColors(true)
 	a.helpBar = tview.NewTextView().SetDynamicColors(true).SetTextAlign(tview.AlignRight)
 
 	right := tview.NewFlex().SetDirection(tview.FlexRow).
@@ -57,11 +60,13 @@ func (a *App) buildLayout() {
 		AddItem(a.tree, 0, 1, true).
 		AddItem(right, 0, 2, false)
 
-	// Bottom line: transient messages on the left, permanent key help on the
-	// right — a message must never hide the help. The help zone is resized
-	// to the generated variant in renderHelp.
+	// Bottom line: transient messages on the left, scan progress in the
+	// middle, permanent key help on the right — a message must never hide
+	// the progress or the help. Progress and help zones are resized to
+	// their content (refreshProgress / renderHelp).
 	a.bottom = tview.NewFlex().
 		AddItem(a.statusMsg, 0, 1, false).
+		AddItem(a.progress, 0, 0, false).
 		AddItem(a.helpBar, 0, 0, false)
 
 	outer := tview.NewFlex().SetDirection(tview.FlexRow).
@@ -79,6 +84,26 @@ func (a *App) buildLayout() {
 		}
 		return false
 	})
+}
+
+// progressText renders the aggregate scan progress segment.
+func progressText(done, total int) string {
+	return fmt.Sprintf("[gray]scanning %d/%d[-]", done, total)
+}
+
+// refreshProgress shows `scanning N/M` in its own bottom-bar segment while
+// any source is loading, and collapses the segment when idle — transient
+// messages can never cover it.
+func (a *App) refreshProgress() {
+	done, total := a.scanProgress()
+	if done == total {
+		a.progress.SetText("")
+		a.bottom.ResizeItem(a.progress, 0, 0)
+		return
+	}
+	text := progressText(done, total)
+	a.progress.SetText(text)
+	a.bottom.ResizeItem(a.progress, printableWidth(text)+2, 0)
 }
 
 // applyFocusStyle highlights the border and title of the panel that owns
