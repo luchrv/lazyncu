@@ -71,6 +71,8 @@ func init() {
 			do: func(a *App) { a.toggleVulns() }},
 		{r: 'r', label: "r", desc: "rescan", contexts: allPanels,
 			do: func(a *App) { a.rescanSelected() }},
+		{r: 'R', label: "R", desc: "rescan all", contexts: allPanels,
+			do: func(a *App) { a.rescanAll() }},
 		{r: 'a', label: "a", desc: "add path", contexts: treeOnly,
 			do: func(a *App) { a.openAddPath() }},
 		{r: 'd', label: "d", desc: "del path", contexts: treeOnly,
@@ -91,8 +93,8 @@ func init() {
 			compact: true},
 		{key: tcell.KeyTab, contexts: allPanels, // dispatch row behind both Tab help rows
 			do: func(a *App) { a.setTableFocus(!a.tableFocused) }},
-		{key: tcell.KeyEscape, contexts: tableViews, // peels: filter first, then tree
-			do: func(a *App) { a.escapeTable() }},
+		{key: tcell.KeyEscape, contexts: allPanels, // peels one layer per context
+			do: func(a *App) { a.escape() }},
 	}
 }
 

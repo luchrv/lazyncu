@@ -353,3 +353,97 @@ func TestFilteredCommandStillUsesAllMarks(t *testing.T) {
 		t.Errorf("command must include hidden marked package: %q", update)
 	}
 }
+
+func TestRescanAllSkipsInFlightAndSweepsIdle(t *testing.T) {
+	// Arrange — one source already scanning, two idle, no marks.
+	a := newTestApp(t)
+	a.state[orchestrator.SourceGlobal].loading = false
+	registerPath(a, "/tmp/a")
+	registerPath(a, "/tmp/b")
+	a.state["/tmp/a"].loading = true
+
+	// Act
+	a.handleKey(runeEvent('R'))
+
+	// Assert — idle sources launched, in-flight untouched, no confirm.
+	if a.pages.HasPage(pageConfirm) {
+		t.Error("sweep without marks must not ask")
+	}
+	if !a.state[orchestrator.SourceGlobal].loading || !a.state["/tmp/b"].loading {
+		t.Error("idle sources must be rescanning")
+	}
+	if !a.state["/tmp/a"].loading {
+		t.Error("in-flight source must keep scanning")
+	}
+}
+
+func TestRescanAllWithMarksAsksOnce(t *testing.T) {
+	a := newTestApp(t)
+	a.state[orchestrator.SourceGlobal].loading = false
+	registerPath(a, "/tmp/a")
+	a.state["/tmp/a"].marks = map[int]map[string]bool{0: {"x": true}}
+
+	a.handleKey(runeEvent('R'))
+
+	if !a.pages.HasPage(pageConfirm) {
+		t.Fatal("sweep over marks must ask first")
+	}
+	if a.state["/tmp/a"].loading {
+		t.Error("the sweep must not start until the user confirms")
+	}
+}
+
+func TestRescanAllAllScanningWarns(t *testing.T) {
+	a := newTestApp(t) // global starts loading; no other sources
+
+	a.handleKey(runeEvent('R'))
+
+	if msg := a.statusMsg.GetText(true); !strings.Contains(msg, "already scanning") {
+		t.Errorf("expected all-scanning warning, got %q", msg)
+	}
+}
+
+func TestEscapeInTreeFoldsSelectedSource(t *testing.T) {
+	// Arrange — a source with projects, expanded, selected.
+	a := newTestApp(t)
+	registerPath(a, "/tmp/a")
+	a.state["/tmp/a"].loading = false
+	a.state["/tmp/a"].event = orchestrator.Event{Source: "/tmp/a",
+		Projects: []orchestrator.ProjectResult{{}}}
+
+	// Act — Esc folds.
+	a.handleKey(keyEvent(tcell.KeyEscape))
+	if !a.state["/tmp/a"].collapsed {
+		t.Fatal("Esc in the tree must collapse the selected source")
+	}
+
+	// Act — Esc again: nothing foldable → info hint, no silence.
+	a.handleKey(keyEvent(tcell.KeyEscape))
+	if msg := a.statusMsg.GetText(true); !strings.Contains(msg, "nothing to fold") {
+		t.Errorf("expected fold hint, got %q", msg)
+	}
+}
+
+func TestCopyUsesFullCommandDespiteTruncation(t *testing.T) {
+	// Arrange — a command far beyond the bar budget at a narrow width.
+	a := newTestApp(t)
+	a.screenW = 60
+	globalSel(a)
+	st := a.state[orchestrator.SourceGlobal]
+	st.loading = false
+	pkgs := make([]scanner.Package, 30)
+	for i := range pkgs {
+		pkgs[i] = scanner.Package{Name: strings.Repeat("p", 10), Current: "1.0.0", New: "2.0.0"}
+	}
+	st.event = orchestrator.Event{Source: orchestrator.SourceGlobal, Packages: pkgs}
+	a.refreshCommandBar()
+
+	// Assert — bar shows the indicator; the copyable command is complete.
+	if !strings.Contains(a.cmdBar.GetText(true), "… (c copies full)") {
+		t.Error("oversized command must show the truncation indicator")
+	}
+	update, _ := a.currentCommands()
+	if strings.Contains(update, "…") {
+		t.Error("the copyable command must never be truncated")
+	}
+}

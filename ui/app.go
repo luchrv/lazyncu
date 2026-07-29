@@ -56,6 +56,7 @@ type App struct {
 	helpBar     *tview.TextView
 	filterInput *tview.InputField
 	bottom      *tview.Flex
+	right       *tview.Flex
 	showVulns   bool
 	msgsHidden  bool
 	lastMsg     string
@@ -341,6 +342,15 @@ func (a *App) cycleSort() {
 	a.refreshDetail()
 }
 
+// escape peels one layer in whichever panel owns the keyboard.
+func (a *App) escape() {
+	if a.currentContext() == ctxTree {
+		a.escapeTree()
+		return
+	}
+	a.escapeTable()
+}
+
 // escapeTable peels one layer: an active filter clears first; without one,
 // focus returns to the tree.
 func (a *App) escapeTable() {
@@ -349,6 +359,54 @@ func (a *App) escapeTable() {
 		return
 	}
 	a.setTableFocus(false)
+}
+
+// escapeTree collapses the selected source (a selected project folds its
+// parent); when nothing is foldable it says so instead of staying silent.
+func (a *App) escapeTree() {
+	src := a.sel.source
+	st, ok := a.state[src]
+	if ok && len(st.event.Projects) > 0 && !st.collapsed {
+		a.toggleFold(src)
+		return
+	}
+	a.setStatus(msgInfo, "nothing to fold here")
+}
+
+// rescanAll sweeps every idle source, asking once when marks would be
+// lost anywhere; in-flight sources are skipped by the overlap guard.
+func (a *App) rescanAll() {
+	idle := make([]string, 0, len(a.order))
+	for _, src := range a.order {
+		if !a.state[src].loading {
+			idle = append(idle, src)
+		}
+	}
+	if len(idle) == 0 {
+		a.setStatus(msgWarn, "all sources are already scanning")
+		return
+	}
+	if marks, projects := allSourcesMarks(a.state); marks > 0 {
+		a.confirm(confirmRescanText("all sources", marks, projects),
+			func() { a.doRescanAll(idle) })
+		return
+	}
+	a.doRescanAll(idle)
+}
+
+// doRescanAll launches the sweep over the given idle sources.
+func (a *App) doRescanAll(sources []string) {
+	for _, src := range sources {
+		st, ok := a.state[src]
+		if !ok || st.loading {
+			continue
+		}
+		st.loading = true
+		st.marks = nil
+		a.scanOne(src)
+	}
+	a.refreshAll()
+	a.setStatus(msgInfo, "rescanning %d sources…", len(sources))
 }
 
 // clearFilter drops the filter and re-renders the full table.
@@ -374,4 +432,21 @@ func (a *App) toggleMessages() {
 		return
 	}
 	a.statusMsg.SetText(a.lastMsg)
+}
+
+// markStats returns the selected entry's marked count and its total
+// package count (before filtering) for the title indicator.
+func (a *App) markStats() (marked, total int) {
+	marked = len(a.currentMarks())
+	st, ok := a.state[a.sel.source]
+	if !ok {
+		return marked, 0
+	}
+	if a.sel.source == orchestrator.SourceGlobal {
+		return marked, len(st.event.Packages)
+	}
+	if pr, ok := a.selectedProject(); ok {
+		return marked, len(pr.Packages)
+	}
+	return marked, 0
 }
