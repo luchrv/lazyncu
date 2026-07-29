@@ -141,12 +141,69 @@ func TestSourceTextShowsAggregate(t *testing.T) {
 		projWith(3, 0, 0, audit.Result{Status: audit.StatusOK, Counters: audit.Counters{High: 3}}),
 	}}}
 
-	got := sourceText("/tmp/work/api", st)
+	got := sourceText("/tmp/work/api", st, spinnerGlyph(0))
 
 	printable := colorTag.ReplaceAllString(got, "")
 	for _, want := range []string{"api", "▲3", "H3"} {
 		if !strings.Contains(printable, want) {
 			t.Errorf("source row missing %q: %q", want, printable)
 		}
+	}
+}
+
+func TestSpinnerGlyphCycles(t *testing.T) {
+	frames := map[string]bool{}
+	for i := range 20 {
+		frames[spinnerGlyph(i)] = true
+	}
+	if len(frames) != 10 {
+		t.Errorf("expected 10 distinct braille frames, got %d", len(frames))
+	}
+	if spinnerGlyph(0) != spinnerGlyph(10) {
+		t.Error("frames must wrap around")
+	}
+}
+
+func TestSourceTextLoadingShowsSpinner(t *testing.T) {
+	st := &sourceState{loading: true}
+
+	got := sourceText("/tmp/x", st, spinnerGlyph(2))
+
+	printable := colorTag.ReplaceAllString(got, "")
+	if !strings.Contains(printable, spinnerGlyph(2)+" scanning…") {
+		t.Errorf("loading row missing spinner: %q", printable)
+	}
+}
+
+func TestAnyLoading(t *testing.T) {
+	a := newTestApp(t)
+	if !a.anyLoading() { // global starts loading
+		t.Error("fresh app must report loading")
+	}
+	a.state[orchestrator.SourceGlobal].loading = false
+	if a.anyLoading() {
+		t.Error("nothing loading must report false")
+	}
+}
+
+func TestProgressText(t *testing.T) {
+	if got := progressText(2, 5); got != "[gray]scanning 2/5[-]" {
+		t.Errorf("progressText = %q", got)
+	}
+}
+
+func TestScanProgressCounts(t *testing.T) {
+	// Arrange — global still loading, one path loading, one path done.
+	a := newTestApp(t)
+	registerPath(a, "/tmp/a")
+	registerPath(a, "/tmp/b")
+	a.state["/tmp/a"].loading = true
+
+	// Act
+	done, total := a.scanProgress()
+
+	// Assert
+	if done != 1 || total != 3 {
+		t.Errorf("scanProgress = %d/%d, want 1/3", done, total)
 	}
 }

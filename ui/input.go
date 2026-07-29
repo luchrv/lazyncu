@@ -31,7 +31,9 @@ func (a *App) handleKey(ev *tcell.EventKey) *tcell.EventKey {
 	if b.desc == "" {
 		return ev // hidden dispatch rows (Tab/Esc) never hint
 	}
-	a.showHint(hintFor(b, ctx))
+	if hint := hintFor(b, ctx); hint != "" {
+		a.setStatus(msgWarn, "%s", hint)
+	}
 	return nil // bound elsewhere: teach, and never fire blind
 }
 
@@ -107,14 +109,14 @@ func (a *App) copyCommand() {
 		text = fix
 	}
 	if text == "" {
-		a.setStatus("nothing to copy here")
+		a.setStatus(msgInfo, "nothing to copy here")
 		return
 	}
 	if err := clipboard.WriteAll(text); err != nil {
-		a.setStatus("[red]clipboard unavailable (%v) — copy manually from the command bar[-]", err)
+		a.setStatus(msgError, "clipboard unavailable (%v) — copy manually from the command bar", err)
 		return
 	}
-	a.setStatus("[green]copied:[-] %s", tview.Escape(text))
+	a.setStatus(msgOK, "copied: %s", tview.Escape(text))
 }
 
 // toggleFold collapses or expands a source's project list. Collapsing moves
@@ -141,7 +143,7 @@ func (a *App) rescanSelected() {
 		return
 	}
 	if st.loading {
-		a.setStatus("[yellow]%s is still scanning — rescan is disabled until it finishes[-]", displayName(src))
+		a.setStatus(msgWarn, "%s is still scanning — rescan is disabled until it finishes", displayName(src))
 		return
 	}
 	if marks, projects := markCount(st); marks > 0 {
@@ -163,7 +165,7 @@ func (a *App) doRescan(src string) {
 	st.marks = nil // fresh scan invalidates the selection
 	a.scanOne(src)
 	a.refreshAll()
-	a.setStatus("rescanning %s…", displayName(src))
+	a.setStatus(msgInfo, "rescanning %s…", displayName(src))
 }
 
 func displayName(source string) string {
@@ -201,11 +203,11 @@ func (a *App) addPath(raw string) {
 	}
 	updated, err := a.cfg.AddPath(raw)
 	if err != nil {
-		a.setStatus("[red]%v[-]", err)
+		a.setStatus(msgError, "%v", err)
 		return
 	}
 	if err := config.Save(a.cfgPath, updated); err != nil {
-		a.setStatus("[red]could not save config: %v[-]", err)
+		a.setStatus(msgError, "could not save config: %v", err)
 		return
 	}
 	a.cfg = updated
@@ -214,7 +216,7 @@ func (a *App) addPath(raw string) {
 	a.state[added] = &sourceState{loading: true}
 	a.scanOne(added)
 	a.refreshAll()
-	a.setStatus("[green]added %s — scanning[-]", added)
+	a.setStatus(msgOK, "added %s — scanning", added)
 }
 
 // removeSelectedPath asks for confirmation, then unregisters the selected
@@ -222,7 +224,7 @@ func (a *App) addPath(raw string) {
 func (a *App) removeSelectedPath() {
 	src := a.sel.source
 	if src == orchestrator.SourceGlobal {
-		a.setStatus("the global source cannot be removed")
+		a.setStatus(msgWarn, "the global source cannot be removed")
 		return
 	}
 	if _, ok := a.state[src]; !ok {
@@ -236,7 +238,7 @@ func (a *App) removeSelectedPath() {
 func (a *App) doRemovePath(src string) {
 	updated := a.cfg.RemovePath(src)
 	if err := config.Save(a.cfgPath, updated); err != nil {
-		a.setStatus("[red]could not save config: %v[-]", err)
+		a.setStatus(msgError, "could not save config: %v", err)
 		return
 	}
 	a.cfg = updated
@@ -244,7 +246,7 @@ func (a *App) doRemovePath(src string) {
 	a.order = removeString(a.order, src)
 	a.sel = selection{source: orchestrator.SourceGlobal, projectIdx: -1}
 	a.refreshAll()
-	a.setStatus("removed %s", src)
+	a.setStatus(msgOK, "removed %s", src)
 }
 
 func removeString(list []string, target string) []string {
