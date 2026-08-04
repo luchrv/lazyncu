@@ -18,13 +18,13 @@ A read-only terminal dashboard for [npm-check-updates](https://github.com/raineo
 
 ## Requirements
 
-- [npm-check-updates](https://github.com/raineorshine/npm-check-updates) >= 18 on PATH: `npm install -g npm-check-updates`
+- [npm-check-updates](https://github.com/raineorshine/npm-check-updates) >= 18 on PATH. The Homebrew install brings it in automatically; with a prebuilt binary, `go install`, or a source build, install it yourself: `npm install -g npm-check-updates`
 - `npm` (and `pnpm` if you want pnpm projects audited)
 - Network access (ncu queries the npm registry; audit queries the advisory endpoint)
 
 ## Install
 
-Homebrew (macOS/Linux):
+Homebrew (macOS/Linux) — installs npm-check-updates as a dependency, no extra step:
 
 ```sh
 brew install luchrv/tap/lazyncu

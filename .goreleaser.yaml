@@ -71,6 +71,9 @@ homebrew_casks:
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     homepage: https://github.com/luchrv/lazyncu
     description: Read-only terminal dashboard for npm-check-updates
+    # lazyncu shells out to ncu at runtime; the homebrew-core formula provides it.
+    dependencies:
+      - formula: npm-check-updates
     # Unsigned binary: strip the quarantine flag so Gatekeeper lets it run.
     hooks:
       post:
