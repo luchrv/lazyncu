@@ -1,7 +1,7 @@
 # scan-detection Specification
 
 ## Purpose
-TBD - created by archiving change add-ncu-tui-dashboard. Update Purpose after archive.
+Infer per registered path, statelessly on every scan, how ncu should run (single project vs deep tree) and which package manager owns each project based on its lockfile.
 ## Requirements
 ### Requirement: Scan mode is auto-detected per path
 The system SHALL determine the scan mode for each registered path at scan time, without persisting the result, using the following decision tree: if the path contains no `package.json`, the mode is `deep` (folder of projects); if the path contains a `package.json` with a `workspaces` field or a `pnpm-workspace.yaml` file is present, the mode is `deep` (monorepo); otherwise the mode is `single` (plain project).

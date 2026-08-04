@@ -1,7 +1,7 @@
 # package-scanning Specification
 
 ## Purpose
-TBD - created by archiving change add-ncu-tui-dashboard. Update Purpose after archive.
+Run ncu and npm through an injected runner to discover pending upgrades — globally installed packages plus every registered path (single project or deep tree) — with engines-aware suggestions, per-project node context, parallel scans, and per-source failure isolation.
 ## Requirements
 ### Requirement: ncu availability is verified at startup
 The system SHALL verify at startup that the `ncu` executable is available on PATH with major version >= 18, and SHALL show an actionable error screen (including the install command `npm install -g npm-check-updates`) when the check fails.

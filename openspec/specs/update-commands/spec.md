@@ -1,7 +1,7 @@
 # update-commands Specification
 
 ## Purpose
-TBD - created by archiving change add-ncu-tui-dashboard. Update Purpose after archive.
+Construct the exact update command for the current selection — global, per project by package manager, or narrowed to marked packages — for the user to copy; the dashboard never executes it.
 ## Requirements
 ### Requirement: Global update command is constructed from scan results
 The system SHALL build, for the global source, the command `npm install -g <pkg>@<newVersion> ...` including every upgradable global package with its target version.

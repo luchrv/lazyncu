@@ -1,7 +1,7 @@
 # dashboard-ui Specification
 
 ## Purpose
-TBD - created by archiving change add-ncu-tui-dashboard. Update Purpose after archive.
+Present scan results in a read-only two-panel terminal dashboard: a sources tree and a packages/vulnerabilities table with severity encoding, copyable commands, scoped keybindings, confirmations, and progressive feedback (loading, errors, progress, status messages).
 ## Requirements
 ### Requirement: Dashboard layout separates sources and packages
 The system SHALL render a terminal UI with a sources/projects panel (global source plus every registered path, with deep sources expanded into child project entries), a package table for the selected entry (columns: package, current version, new version, severity), and a command bar showing the suggested update command for the current selection. In detail tables, only identifying columns (package name, dependency chain) SHALL expand with available width; version, severity, range, and fix columns SHALL keep their natural width. A dependency chain longer than its column budget SHALL be shortened with a middle ellipsis, preserving both ends of the chain.

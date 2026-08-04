@@ -1,7 +1,7 @@
 # semver-analysis Specification
 
 ## Purpose
-TBD - created by archiving change add-ncu-tui-dashboard. Update Purpose after archive.
+Classify each pending upgrade as major, minor, or patch from its current and new version strings, and aggregate per-project severity counters for the dashboard.
 ## Requirements
 ### Requirement: Upgrade severity is classified per package
 The system SHALL classify each package's upgrade as `major`, `minor`, or `patch` by comparing the current and new semver versions, and SHALL classify as `other` any pair that cannot be parsed as semver (git URLs, tags, wildcards) or whose current version is unknown.
