@@ -154,6 +154,18 @@ func helpText(ctx keyContext, compact bool) string {
 	return strings.Join(parts, "  ")
 }
 
+// browserKeyLines documents the add-path browser's keys in the cheat
+// sheet; the modal owns these keys itself, outside the keymap table.
+func browserKeyLines() []string {
+	return []string{
+		"[yellow]Tab[-]  input/tree",
+		"[yellow]→ ←[-]  expand/collapse",
+		"[yellow]↵[-]    select folder",
+		"[yellow].[-]    hidden folders",
+		"[yellow]Esc[-]  cancel",
+	}
+}
+
 // legendLines is the counter legend shown in the cheat sheet: shapes for
 // semver, letters for audit — the two alphabets that must never collide.
 func legendLines() []string {
@@ -202,7 +214,11 @@ func keysText() string {
 		}
 		lines = append(lines, "")
 	}
-	lines = append(lines, "[::b]Legend[::-]")
+	lines = append(lines, "[::b]Add path[::-]")
+	for _, l := range browserKeyLines() {
+		lines = append(lines, "  "+l)
+	}
+	lines = append(lines, "", "[::b]Legend[::-]")
 	for _, l := range legendLines() {
 		lines = append(lines, "  "+l)
 	}

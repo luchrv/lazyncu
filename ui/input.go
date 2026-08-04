@@ -59,6 +59,9 @@ func (a *App) handleModalKey(ev *tcell.EventKey) *tcell.EventKey {
 		}
 		return nil
 	}
+	if a.pages.HasPage(pageAddPath) {
+		return a.handleBrowserKey(ev)
+	}
 	// About modal.
 	switch {
 	case ev.Key() == tcell.KeyEscape, ev.Rune() == 'h':
@@ -173,26 +176,6 @@ func displayName(source string) string {
 		return "global packages"
 	}
 	return source
-}
-
-// openAddPath shows the add-path modal input.
-func (a *App) openAddPath() {
-	input := tview.NewInputField().SetLabel("Path to add: ").SetFieldWidth(0)
-	input.SetBorder(true)
-	input.SetDoneFunc(func(key tcell.Key) {
-		defer a.closeAddPath()
-		if key != tcell.KeyEnter {
-			return
-		}
-		a.addPath(input.GetText())
-	})
-	a.pages.AddPage(pageAddPath, centered(input, modalWidth, modalHeight), true, true)
-	a.tv.SetFocus(input)
-}
-
-func (a *App) closeAddPath() {
-	a.pages.RemovePage(pageAddPath)
-	a.tv.SetFocus(a.tree)
 }
 
 // addPath validates through the config store, persists immediately, and

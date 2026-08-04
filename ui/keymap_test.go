@@ -288,6 +288,7 @@ func TestKeysTextGroupsAndLegend(t *testing.T) {
 		"quit", "help", "focus sources", "focus packages", // globals incl. bar-hidden
 		"add path", "del path", "fold", // tree group
 		"mark", "clear", "move", "back", // table group
+		"Add path", "input/tree", "select folder", "hidden folders", // browser group
 		"▲ major", "● minor", "▪ patch", // legend
 		"C critical", "H high", "M moderate", "L low",
 	} {

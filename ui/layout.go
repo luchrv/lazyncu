@@ -11,8 +11,6 @@ const (
 	pageMain    = "main"
 	pageAddPath = "add-path"
 	cmdBarRows  = 4
-	modalWidth  = 60
-	modalHeight = 3
 )
 
 func (a *App) buildLayout() {
