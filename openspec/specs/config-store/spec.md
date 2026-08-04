@@ -1,7 +1,7 @@
 # config-store Specification
 
 ## Purpose
-TBD - created by archiving change add-ncu-tui-dashboard. Update Purpose after archive.
+Persist user settings — registered project paths and the per-command scan timeout — as a TOML file under the XDG config directory, created on first launch and editable both from the UI and by hand.
 ## Requirements
 ### Requirement: Configuration is persisted as a TOML file
 The system SHALL persist user configuration in a TOML file located at `$XDG_CONFIG_HOME/lazyncu/config.toml`, falling back to `~/.config/lazyncu/config.toml` when `XDG_CONFIG_HOME` is unset. A config directory left over from the application's previous name (`ncu-tui`) SHALL NOT be read or migrated.
