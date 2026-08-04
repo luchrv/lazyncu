@@ -57,6 +57,8 @@ type App struct {
 	filterInput *tview.InputField
 	bottom      *tview.Flex
 	right       *tview.Flex
+	// browser holds the add-path picker's widgets while its modal is open.
+	browser *pathBrowser
 	showVulns   bool
 	msgsHidden  bool
 	lastMsg     string
@@ -317,7 +319,8 @@ func (a *App) clearIfCurrent(gen int) {
 // is no separate context field to keep in sync.
 func (a *App) currentContext() keyContext {
 	switch {
-	case a.pages.HasPage(pageAbout) || a.pages.HasPage(pageConfirm) || a.pages.HasPage(pageKeys):
+	case a.pages.HasPage(pageAbout) || a.pages.HasPage(pageConfirm) ||
+		a.pages.HasPage(pageKeys) || a.pages.HasPage(pageAddPath):
 		return ctxModal
 	case a.tableFocused && a.showVulns:
 		return ctxTableVulns

@@ -74,7 +74,7 @@ reflects exactly what works right now.
 | `h` | global | About (version, commit, build date) — close with `Esc` or `h` |
 | `Tab` | global | Move focus between the sources tree and the packages table |
 | `1` / `2` | global | Jump focus straight to the sources tree / packages table |
-| `a` | sources | Add a path (validated, persisted, scanned immediately) |
+| `a` | sources | Add a path — opens a folder browser (type/paste in the input, or navigate the tree: `Tab` input/tree, `→`/`←` expand/collapse, `.` hidden folders, `Enter` selects; validated, persisted, scanned immediately) |
 | `d` | sources | Remove the selected path (asks for confirmation; the folder on disk is never touched) |
 | `Enter` | sources | Collapse/expand the selected source's project list |
 | `Space` | packages table | Mark/unmark a package — the update command narrows to the marked ones |
