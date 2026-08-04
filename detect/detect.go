@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // Mode is the ncu invocation strategy for a path.
@@ -62,6 +63,33 @@ func PackageManagerFor(dir string) PackageManager {
 		}
 	}
 	return Npm
+}
+
+// NodeContext reads a project's declared node version context: the trimmed
+// content of .nvmrc and the engines.node constraint from package.json. Either
+// value degrades to empty when missing or unreadable — node context is
+// informational and must never fail a scan.
+func NodeContext(dir string) (nvmrc, engines string) {
+	if data, err := os.ReadFile(filepath.Join(dir, ".nvmrc")); err == nil {
+		nvmrc = strings.TrimSpace(string(data))
+	}
+	return nvmrc, enginesNode(filepath.Join(dir, "package.json"))
+}
+
+func enginesNode(pkgFile string) string {
+	data, err := os.ReadFile(pkgFile)
+	if err != nil {
+		return ""
+	}
+	var manifest struct {
+		Engines struct {
+			Node string `json:"node"`
+		} `json:"engines"`
+	}
+	if json.Unmarshal(data, &manifest) != nil {
+		return ""
+	}
+	return manifest.Engines.Node
 }
 
 func hasWorkspacesField(packageJSON []byte) bool {

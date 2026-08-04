@@ -34,4 +34,8 @@ type Project struct {
 	PM       detect.PackageManager
 	Packages []Package
 	Counters semver.Counters
+	// Nvmrc is the trimmed .nvmrc content; empty when the file is absent.
+	Nvmrc string
+	// EnginesNode is the engines.node constraint from package.json; empty when undeclared.
+	EnginesNode string
 }

@@ -13,6 +13,7 @@ A read-only terminal dashboard for [npm-check-updates](https://github.com/raineo
 - Scans **global packages** (`ncu -g`) and every **registered path** in parallel on launch.
 - Auto-detects what each path is — single project, monorepo, or folder of projects — and picks `ncu` or `ncu --deep` accordingly. Zero per-path configuration.
 - Classifies every upgrade as **major / minor / patch** with color coding and per-project counters.
+- Respects each project's **`engines.node`**: suggestions are limited to versions the project can actually install, and the detail panel shows the project's declared node version (`.nvmrc` or `engines.node`).
 - Runs **`npm audit` / `pnpm audit`** per project alongside the version scan: severity counters (critical/high/moderate/low), vulnerable-package detail, and the dependency chain that drags each vulnerability in (`lodash ← express`).
 - **Never modifies anything.** It shows the exact update/fix command for the current selection and copies it to your clipboard.
 

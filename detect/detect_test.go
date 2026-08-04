@@ -96,6 +96,88 @@ func TestScanModeReEvaluatesEachCall(t *testing.T) {
 	}
 }
 
+func TestNodeContext(t *testing.T) {
+	tests := []struct {
+		name        string
+		setup       func(t *testing.T, dir string)
+		wantNvmrc   string
+		wantEngines string
+	}{
+		{
+			name: "nvmrc content is trimmed",
+			setup: func(t *testing.T, dir string) {
+				writeFile(t, dir, ".nvmrc", "18.19.0\n")
+			},
+			wantNvmrc: "18.19.0",
+		},
+		{
+			name: "v-prefixed nvmrc is kept verbatim",
+			setup: func(t *testing.T, dir string) {
+				writeFile(t, dir, ".nvmrc", "v20.11.1")
+			},
+			wantNvmrc: "v20.11.1",
+		},
+		{
+			name: "lts alias nvmrc is kept verbatim",
+			setup: func(t *testing.T, dir string) {
+				writeFile(t, dir, ".nvmrc", "lts/gallium\n")
+			},
+			wantNvmrc: "lts/gallium",
+		},
+		{
+			name: "engines.node from package.json",
+			setup: func(t *testing.T, dir string) {
+				writeFile(t, dir, "package.json", `{"name":"app","engines":{"node":">=18"}}`)
+			},
+			wantEngines: ">=18",
+		},
+		{
+			name: "both nvmrc and engines are reported",
+			setup: func(t *testing.T, dir string) {
+				writeFile(t, dir, ".nvmrc", "16\n")
+				writeFile(t, dir, "package.json", `{"engines":{"node":">=16 <17"}}`)
+			},
+			wantNvmrc:   "16",
+			wantEngines: ">=16 <17",
+		},
+		{
+			name:  "neither declaration yields empty values",
+			setup: func(t *testing.T, dir string) {},
+		},
+		{
+			name: "malformed package.json degrades to empty engines",
+			setup: func(t *testing.T, dir string) {
+				writeFile(t, dir, "package.json", `{broken`)
+			},
+		},
+		{
+			name: "package.json without engines yields empty engines",
+			setup: func(t *testing.T, dir string) {
+				writeFile(t, dir, "package.json", `{"name":"app","dependencies":{}}`)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Arrange
+			dir := t.TempDir()
+			tt.setup(t, dir)
+
+			// Act
+			nvmrc, engines := NodeContext(dir)
+
+			// Assert
+			if nvmrc != tt.wantNvmrc {
+				t.Errorf("NodeContext() nvmrc = %q, want %q", nvmrc, tt.wantNvmrc)
+			}
+			if engines != tt.wantEngines {
+				t.Errorf("NodeContext() engines = %q, want %q", engines, tt.wantEngines)
+			}
+		})
+	}
+}
+
 func TestPackageManager(t *testing.T) {
 	tests := []struct {
 		name      string

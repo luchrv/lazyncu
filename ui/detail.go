@@ -175,8 +175,10 @@ func vulnCell(s audit.Severity) string {
 }
 
 // detailTitle composes the detail-panel title from view, sort, filter,
-// and mark state — the single home for view indicators.
-func detailTitle(showVulns bool, mode sortMode, filter string, marked, total int) string {
+// mark state, and the selected project's node context — the single home
+// for view indicators. The node segment goes last so narrow terminals
+// truncate it before any view state.
+func detailTitle(showVulns bool, mode sortMode, filter string, marked, total int, nodeCtx string) string {
 	title := " 2 Packages (v for vulnerabilities)"
 	if showVulns {
 		title = " 2 Vulnerabilities (v to go back)"
@@ -190,7 +192,34 @@ func detailTitle(showVulns bool, mode sortMode, filter string, marked, total int
 	if filter != "" {
 		title += " · /" + filter
 	}
+	if nodeCtx != "" {
+		title += " · " + nodeCtx
+	}
 	return title + " "
+}
+
+// nodeContextLabel renders a project's declared node version for the title.
+// The explicit .nvmrc pin wins over the engines.node constraint; both empty
+// yields no label. Values are shown verbatim (18, v20.1.0, lts/gallium, >=18).
+func nodeContextLabel(nvmrc, engines string) string {
+	switch {
+	case nvmrc != "":
+		return "node " + nvmrc + " (.nvmrc)"
+	case engines != "":
+		return "node " + engines + " (engines)"
+	default:
+		return ""
+	}
+}
+
+// selectedNodeContext resolves the node label for the current selection;
+// empty for the global source and for projects without declarations.
+func (a *App) selectedNodeContext() string {
+	pr, ok := a.selectedProject()
+	if !ok {
+		return ""
+	}
+	return nodeContextLabel(pr.Nvmrc, pr.EnginesNode)
 }
 
 // refreshDetail renders the right panel: the package table for the current
@@ -199,7 +228,7 @@ func (a *App) refreshDetail() {
 	a.detail.Clear()
 	a.rowPkgs = nil // marking is only valid on the packages view
 	marked, total := a.markStats()
-	a.detail.SetTitle(detailTitle(a.showVulns, a.sortMode, a.filterText, marked, total))
+	a.detail.SetTitle(detailTitle(a.showVulns, a.sortMode, a.filterText, marked, total, a.selectedNodeContext()))
 	if a.showVulns {
 		a.renderVulns()
 		return

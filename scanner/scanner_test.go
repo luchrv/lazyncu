@@ -190,11 +190,12 @@ func TestScanPathSingleProject(t *testing.T) {
 	// Arrange
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "package.json"),
-		`{"name":"app","dependencies":{"express":"^4.18.0"},"devDependencies":{"vitest":"^1.0.0"}}`)
+		`{"name":"app","dependencies":{"express":"^4.18.0"},"devDependencies":{"vitest":"^1.0.0"},"engines":{"node":">=18"}}`)
+	writeFile(t, filepath.Join(dir, ".nvmrc"), "18.19.0\n")
 	writeFile(t, filepath.Join(dir, "pnpm-lock.yaml"), "")
 	pkgFile := filepath.Join(dir, "package.json")
 	r := &fakeRunner{responses: map[string]fakeResponse{
-		"ncu --jsonUpgraded --packageFile " + pkgFile: {stdout: []byte(`{"express":"^5.1.0","vitest":"^1.2.0"}`)},
+		"ncu --jsonUpgraded --enginesNode --packageFile " + pkgFile: {stdout: []byte(`{"express":"^5.1.0","vitest":"^1.2.0"}`)},
 	}}
 
 	// Act
@@ -224,6 +225,9 @@ func TestScanPathSingleProject(t *testing.T) {
 	if p.Counters != (semver.Counters{Major: 1, Minor: 1}) {
 		t.Errorf("Counters = %+v, want {Major:1 Minor:1}", p.Counters)
 	}
+	if p.Nvmrc != "18.19.0" || p.EnginesNode != ">=18" {
+		t.Errorf("node context = {Nvmrc:%q EnginesNode:%q}, want {18.19.0 >=18}", p.Nvmrc, p.EnginesNode)
+	}
 }
 
 func TestScanPathSingleUpToDate(t *testing.T) {
@@ -232,7 +236,7 @@ func TestScanPathSingleUpToDate(t *testing.T) {
 	writeFile(t, filepath.Join(dir, "package.json"), `{"name":"app","dependencies":{}}`)
 	pkgFile := filepath.Join(dir, "package.json")
 	r := &fakeRunner{responses: map[string]fakeResponse{
-		"ncu --jsonUpgraded --packageFile " + pkgFile: {stdout: []byte(`{}`)},
+		"ncu --jsonUpgraded --enginesNode --packageFile " + pkgFile: {stdout: []byte(`{}`)},
 	}}
 
 	// Act
@@ -261,7 +265,7 @@ func TestScanPathDeepFolderOfProjects(t *testing.T) {
 		"web/package.json": {"react":"^18.3.1"}
 	}`
 	r := &fakeRunner{responses: map[string]fakeResponse{
-		"ncu --deep --jsonUpgraded": {stdout: []byte(deepJSON)},
+		"ncu --deep --jsonUpgraded --enginesNode": {stdout: []byte(deepJSON)},
 	}}
 
 	// Act
@@ -288,6 +292,9 @@ func TestScanPathDeepFolderOfProjects(t *testing.T) {
 	if api.Packages[0].Current != "^4.18.0" || api.Packages[0].Severity != semver.Major {
 		t.Errorf("api express = %+v, want current ^4.18.0 major", api.Packages[0])
 	}
+	if api.Nvmrc != "" || api.EnginesNode != "" {
+		t.Errorf("api node context = {Nvmrc:%q EnginesNode:%q}, want empty (no declarations)", api.Nvmrc, api.EnginesNode)
+	}
 	if web := byLabel["web"]; web.PM != detect.Yarn {
 		t.Errorf("web.PM = %q, want yarn", web.PM)
 	}
@@ -301,7 +308,7 @@ func TestScanPathDeepMonorepoWithAbsoluteKeys(t *testing.T) {
 	writeFile(t, filepath.Join(root, "packages", "core", "package.json"), `{"dependencies":{"lodash":"^4.17.20"}}`)
 	deepJSON := `{"` + filepath.Join(root, "packages", "core", "package.json") + `": {"lodash":"^4.17.21"}}`
 	r := &fakeRunner{responses: map[string]fakeResponse{
-		"ncu --deep --jsonUpgraded": {stdout: []byte(deepJSON)},
+		"ncu --deep --jsonUpgraded --enginesNode": {stdout: []byte(deepJSON)},
 	}}
 
 	// Act
@@ -331,7 +338,7 @@ func TestScanPathNcuNonZeroExit(t *testing.T) {
 	writeFile(t, filepath.Join(dir, "package.json"), `{"name":"app"}`)
 	pkgFile := filepath.Join(dir, "package.json")
 	r := &fakeRunner{responses: map[string]fakeResponse{
-		"ncu --jsonUpgraded --packageFile " + pkgFile: {err: errors.New("exit status 2")},
+		"ncu --jsonUpgraded --enginesNode --packageFile " + pkgFile: {err: errors.New("exit status 2")},
 	}}
 
 	// Act
@@ -349,7 +356,7 @@ func TestScanPathMalformedJSONNoPanic(t *testing.T) {
 	writeFile(t, filepath.Join(dir, "package.json"), `{"name":"app"}`)
 	pkgFile := filepath.Join(dir, "package.json")
 	r := &fakeRunner{responses: map[string]fakeResponse{
-		"ncu --jsonUpgraded --packageFile " + pkgFile: {stdout: []byte(`{{{not json`)},
+		"ncu --jsonUpgraded --enginesNode --packageFile " + pkgFile: {stdout: []byte(`{{{not json`)},
 	}}
 
 	// Act
@@ -367,7 +374,7 @@ func TestScanPathTimeout(t *testing.T) {
 	writeFile(t, filepath.Join(dir, "package.json"), `{"name":"app"}`)
 	pkgFile := filepath.Join(dir, "package.json")
 	r := &fakeRunner{responses: map[string]fakeResponse{
-		"ncu --jsonUpgraded --packageFile " + pkgFile: {blockCtx: true},
+		"ncu --jsonUpgraded --enginesNode --packageFile " + pkgFile: {blockCtx: true},
 	}}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

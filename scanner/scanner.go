@@ -76,7 +76,7 @@ func (s Scanner) ScanPath(ctx context.Context, dir string) ([]Project, error) {
 
 func (s Scanner) scanSingle(ctx context.Context, dir string) ([]Project, error) {
 	pkgFile := filepath.Join(dir, "package.json")
-	out, err := s.runner.Run(ctx, dir, "ncu", "--jsonUpgraded", "--packageFile", pkgFile)
+	out, err := s.runner.Run(ctx, dir, "ncu", "--jsonUpgraded", "--enginesNode", "--packageFile", pkgFile)
 	if err != nil {
 		return nil, fmt.Errorf("ncu failed for %s: %w", dir, err)
 	}
@@ -88,7 +88,7 @@ func (s Scanner) scanSingle(ctx context.Context, dir string) ([]Project, error) 
 }
 
 func (s Scanner) scanDeep(ctx context.Context, root string) ([]Project, error) {
-	out, err := s.runner.Run(ctx, root, "ncu", "--deep", "--jsonUpgraded")
+	out, err := s.runner.Run(ctx, root, "ncu", "--deep", "--jsonUpgraded", "--enginesNode")
 	if err != nil {
 		return nil, fmt.Errorf("ncu --deep failed for %s: %w", root, err)
 	}
@@ -141,12 +141,15 @@ func parseUpgradedMap(out []byte) (map[string]string, error) {
 func buildProject(dir, label string, upgraded map[string]string) Project {
 	current := manifestVersions(filepath.Join(dir, "package.json"))
 	packages := buildPackages(upgraded, current)
+	nvmrc, engines := detect.NodeContext(dir)
 	return Project{
-		Dir:      dir,
-		Label:    label,
-		PM:       detect.PackageManagerFor(dir),
-		Packages: packages,
-		Counters: countSeverities(packages),
+		Dir:         dir,
+		Label:       label,
+		PM:          detect.PackageManagerFor(dir),
+		Packages:    packages,
+		Counters:    countSeverities(packages),
+		Nvmrc:       nvmrc,
+		EnginesNode: engines,
 	}
 }
 
