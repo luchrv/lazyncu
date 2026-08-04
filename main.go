@@ -43,7 +43,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	cfg, err := config.Load(cfgPath)
+	cfg, firstRun, err := config.Load(cfgPath)
 	if err != nil {
 		return err
 	}
@@ -58,5 +58,5 @@ func run() error {
 	auditor := func(ctx context.Context, dir string, pm detect.PackageManager) audit.Result {
 		return audit.Run(ctx, runner, dir, pm)
 	}
-	return ui.New(ctx, cfg, cfgPath, sc, auditor).Run()
+	return ui.New(ctx, cfg, cfgPath, sc, auditor, firstRun).Run()
 }

@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/gdamore/tcell/v2"
@@ -253,5 +254,113 @@ func TestBrowserDashboardKeysInert(t *testing.T) {
 	}
 	if a.pages.HasPage(pageConfirm) || a.pages.HasPage(pageAbout) {
 		t.Error("dashboard keys acted underneath the browser")
+	}
+}
+
+// --- first-run onboarding ---
+
+func TestFirstRunOpensWelcomeBrowser(t *testing.T) {
+	// Arrange
+	a := newTestApp(t)
+	a.firstRun = true
+
+	// Act
+	a.maybeOpenWelcome()
+
+	// Assert
+	if !a.pages.HasPage(pageAddPath) {
+		t.Fatal("first run must auto-open the add-path browser")
+	}
+	if !a.browser.welcome {
+		t.Error("the auto-opened browser must be the welcome variant")
+	}
+	if a.currentContext() != ctxModal {
+		t.Error("the welcome browser must put the app in ctxModal")
+	}
+}
+
+func TestNonFirstRunStaysPassive(t *testing.T) {
+	// Arrange — existing config, zero paths (global-only user).
+	a := newTestApp(t)
+
+	// Act
+	a.maybeOpenWelcome()
+
+	// Assert
+	if a.pages.HasPage(pageAddPath) {
+		t.Error("non-first-run launches must never auto-open the browser")
+	}
+}
+
+func TestWelcomeDismissShowsHint(t *testing.T) {
+	// Arrange
+	a := newTestApp(t)
+	a.firstRun = true
+	a.maybeOpenWelcome()
+
+	// Act
+	a.handleModalKey(keyEvent(tcell.KeyEscape))
+
+	// Assert
+	if a.pages.HasPage(pageAddPath) {
+		t.Fatal("Esc must close the welcome browser")
+	}
+	if !strings.Contains(a.lastMsg, "press a to add a path") {
+		t.Errorf("dismissing the welcome browser must hint at a/?, got %q", a.lastMsg)
+	}
+}
+
+func TestWelcomeDismissFromInputShowsHint(t *testing.T) {
+	// Arrange
+	a := newTestApp(t)
+	a.firstRun = true
+	a.maybeOpenWelcome()
+
+	// Act — Esc through the InputField's own handler.
+	handler := a.browser.input.InputHandler()
+	handler(keyEvent(tcell.KeyEscape), func(p tview.Primitive) {})
+
+	// Assert
+	if a.pages.HasPage(pageAddPath) {
+		t.Fatal("input-focus Esc must close the welcome browser")
+	}
+	if !strings.Contains(a.lastMsg, "press a to add a path") {
+		t.Errorf("input-focus dismissal must hint too, got %q", a.lastMsg)
+	}
+}
+
+func TestNormalBrowserDismissStaysSilent(t *testing.T) {
+	// Arrange
+	a := newTestApp(t)
+	a.openBrowserAt(browserFixture(t))
+
+	// Act
+	a.handleModalKey(keyEvent(tcell.KeyEscape))
+
+	// Assert
+	if strings.Contains(a.lastMsg, "press a to add a path") {
+		t.Errorf("a normal browser dismissal must not hint, got %q", a.lastMsg)
+	}
+}
+
+func TestWelcomeAddPathFlowsNormally(t *testing.T) {
+	// Arrange
+	a := newTestApp(t)
+	a.firstRun = true
+	root := browserFixture(t)
+	a.openBrowser(root, true)
+	alpha := childByPath(a.browser.tree.GetRoot(), filepath.Join(root, "alpha"))
+	a.browser.tree.SetCurrentNode(alpha)
+
+	// Act
+	a.handleModalKey(keyEvent(tcell.KeyEnter))
+
+	// Assert
+	want := filepath.Join(root, "alpha")
+	if len(a.cfg.Paths) != 1 || a.cfg.Paths[0].Path != want {
+		t.Errorf("cfg.Paths = %+v, want [%s]", a.cfg.Paths, want)
+	}
+	if strings.Contains(a.lastMsg, "press a to add a path") {
+		t.Errorf("adding from the welcome browser must not hint, got %q", a.lastMsg)
 	}
 }

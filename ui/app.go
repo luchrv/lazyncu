@@ -59,6 +59,9 @@ type App struct {
 	right       *tview.Flex
 	// browser holds the add-path picker's widgets while its modal is open.
 	browser *pathBrowser
+	// firstRun is true when the config file was created by this launch; it
+	// triggers the one-time welcome browser.
+	firstRun bool
 	showVulns   bool
 	msgsHidden  bool
 	lastMsg     string
@@ -123,18 +126,21 @@ func (a *App) clearMarks() {
 	delete(st.marks, a.sel.projectIdx)
 }
 
-// New assembles the dashboard around an already-loaded config.
+// New assembles the dashboard around an already-loaded config. firstRun
+// marks a launch that just created the config file, enabling the one-time
+// welcome browser.
 func New(ctx context.Context, cfg config.Config, cfgPath string,
-	sc orchestrator.Scanner, auditor orchestrator.Auditor) *App {
+	sc orchestrator.Scanner, auditor orchestrator.Auditor, firstRun bool) *App {
 	a := &App{
-		tv:      tview.NewApplication(),
-		ctx:     ctx,
-		cfg:     cfg,
-		cfgPath: cfgPath,
-		sc:      sc,
-		auditor: auditor,
-		state:   map[string]*sourceState{},
-		sel:     selection{source: orchestrator.SourceGlobal, projectIdx: -1},
+		tv:       tview.NewApplication(),
+		ctx:      ctx,
+		cfg:      cfg,
+		cfgPath:  cfgPath,
+		sc:       sc,
+		auditor:  auditor,
+		state:    map[string]*sourceState{},
+		sel:      selection{source: orchestrator.SourceGlobal, projectIdx: -1},
+		firstRun: firstRun,
 	}
 	a.order = append(a.order, orchestrator.SourceGlobal)
 	a.state[orchestrator.SourceGlobal] = &sourceState{loading: true}
@@ -155,6 +161,7 @@ func (a *App) Run() error {
 	a.consume(orchestrator.Run(a.ctx, a.sc, a.auditor, paths))
 
 	a.refreshAll()
+	a.maybeOpenWelcome()
 	return a.tv.SetRoot(a.pages, true).EnableMouse(true).Run()
 }
 

@@ -42,11 +42,14 @@ func TestLegacyConfigDirIsIgnored(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg, err := Load(path)
+	cfg, created, err := Load(path)
 
 	// Assert: fresh empty config under lazyncu, legacy neither read nor modified
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
+	}
+	if !created {
+		t.Error("Load() created = false, want true for a fresh config")
 	}
 	if len(cfg.Paths) != 0 || cfg.TimeoutMS != DefaultTimeoutMS {
 		t.Errorf("legacy config leaked into fresh one: %+v", cfg)
@@ -86,11 +89,14 @@ func TestLoadCreatesFileOnFirstLaunch(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "nested", "config.toml")
 
 	// Act
-	cfg, err := Load(path)
+	cfg, created, err := Load(path)
 
 	// Assert
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
+	}
+	if !created {
+		t.Error("Load() created = false, want true on first launch")
 	}
 	if len(cfg.Paths) != 0 {
 		t.Errorf("first launch Paths = %v, want empty", cfg.Paths)
@@ -112,11 +118,14 @@ func TestLoadSaveRoundTrip(t *testing.T) {
 	if err := Save(path, original); err != nil {
 		t.Fatalf("Save() error = %v", err)
 	}
-	loaded, err := Load(path)
+	loaded, created, err := Load(path)
 
 	// Assert
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
+	}
+	if created {
+		t.Error("Load() created = true, want false for an existing file")
 	}
 	if loaded.TimeoutMS != 60000 {
 		t.Errorf("TimeoutMS = %d, want 60000", loaded.TimeoutMS)
@@ -135,7 +144,7 @@ func TestLoadMalformedTOMLReturnsErrorWithPath(t *testing.T) {
 	before, _ := os.ReadFile(path)
 
 	// Act
-	_, err := Load(path)
+	_, _, err := Load(path)
 
 	// Assert
 	if err == nil {
@@ -158,7 +167,7 @@ func TestTimeoutDefaultsTo30000(t *testing.T) {
 	}
 
 	// Act
-	cfg, err := Load(path)
+	cfg, _, err := Load(path)
 
 	// Assert
 	if err != nil {
@@ -177,7 +186,7 @@ func TestTimeoutOverride(t *testing.T) {
 	}
 
 	// Act
-	cfg, err := Load(path)
+	cfg, _, err := Load(path)
 
 	// Assert
 	if err != nil {
@@ -310,7 +319,7 @@ func TestSavePersistsImmediately(t *testing.T) {
 	// Arrange
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.toml")
-	cfg, err := Load(path)
+	cfg, _, err := Load(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -323,7 +332,7 @@ func TestSavePersistsImmediately(t *testing.T) {
 	if err := Save(path, cfg); err != nil {
 		t.Fatalf("Save() error = %v", err)
 	}
-	reloaded, err := Load(path)
+	reloaded, _, err := Load(path)
 
 	// Assert
 	if err != nil {

@@ -51,28 +51,28 @@ func FilePath() (string, error) {
 }
 
 // Load reads the config file at path, creating an empty one (and its parent
-// directory) on first launch. A malformed file is reported and left untouched.
-func Load(path string) (Config, error) {
+// directory) on first launch; created reports that case so callers can react
+// to a true first run. A malformed file is reported and left untouched.
+func Load(path string) (cfg Config, created bool, err error) {
 	data, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
-		cfg := Config{TimeoutMS: DefaultTimeoutMS}
+		cfg = Config{TimeoutMS: DefaultTimeoutMS}
 		if saveErr := Save(path, cfg); saveErr != nil {
-			return Config{}, fmt.Errorf("creating config file %s: %w", path, saveErr)
+			return Config{}, false, fmt.Errorf("creating config file %s: %w", path, saveErr)
 		}
-		return cfg, nil
+		return cfg, true, nil
 	}
 	if err != nil {
-		return Config{}, fmt.Errorf("reading config file %s: %w", path, err)
+		return Config{}, false, fmt.Errorf("reading config file %s: %w", path, err)
 	}
 
-	var cfg Config
 	if err := toml.Unmarshal(data, &cfg); err != nil {
-		return Config{}, fmt.Errorf("parsing config file %s: %w", path, err)
+		return Config{}, false, fmt.Errorf("parsing config file %s: %w", path, err)
 	}
 	if cfg.TimeoutMS == 0 {
 		cfg.TimeoutMS = DefaultTimeoutMS
 	}
-	return cfg, nil
+	return cfg, false, nil
 }
 
 // Save writes cfg to path, creating parent directories as needed.

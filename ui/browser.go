@@ -27,6 +27,27 @@ type pathBrowser struct {
 	input      *tview.InputField
 	tree       *tview.TreeView
 	showHidden bool
+	// welcome marks the auto-opened first-run variant: dismissing it hints
+	// at a and ?, and the modal title greets instead of instructing.
+	welcome bool
+}
+
+// Browser modal titles: both teach the keys; the welcome variant greets the
+// first-run user. dismissHint fires when the welcome browser closes without
+// a path being added.
+const (
+	browserTitle        = " Add path (Tab input/tree · →← expand · ↵ select · . hidden · Esc) "
+	browserWelcomeTitle = " Welcome — pick a folder to scan (Tab input/tree · →← expand · ↵ select · Esc) "
+	dismissHint         = "press a to add a path, ? for all keys"
+)
+
+// maybeOpenWelcome auto-opens the browser once on a true first run — the
+// config file was created by this launch — and never on any other launch.
+func (a *App) maybeOpenWelcome() {
+	if !a.firstRun || len(a.cfg.Paths) > 0 {
+		return
+	}
+	a.openBrowser(browserRoot(), true)
 }
 
 // dirNode is a tree node's reference: its absolute path and whether its
@@ -73,11 +94,17 @@ func (a *App) openAddPath() {
 	a.openBrowserAt(browserRoot())
 }
 
-// openBrowserAt builds and shows the hybrid picker rooted at root.
+// openBrowserAt builds and shows the normal (non-welcome) picker.
 func (a *App) openBrowserAt(root string) {
+	a.openBrowser(root, false)
+}
+
+// openBrowser builds and shows the hybrid picker rooted at root.
+func (a *App) openBrowser(root string, welcome bool) {
 	b := &pathBrowser{
-		input: tview.NewInputField().SetLabel("Path: ").SetFieldWidth(0),
-		tree:  tview.NewTreeView(),
+		input:   tview.NewInputField().SetLabel("Path: ").SetFieldWidth(0),
+		tree:    tview.NewTreeView(),
+		welcome: welcome,
 	}
 	a.browser = b
 
@@ -89,7 +116,7 @@ func (a *App) openBrowserAt(root string) {
 			a.closeAddPath()
 			a.addPath(text)
 		case tcell.KeyEscape:
-			a.closeAddPath()
+			a.dismissBrowser()
 		case tcell.KeyTab, tcell.KeyBacktab:
 			a.tv.SetFocus(b.tree)
 		}
@@ -105,7 +132,11 @@ func (a *App) openBrowserAt(root string) {
 		AddItem(b.input, 1, 0, false).
 		AddItem(b.tree, 0, 1, true)
 	flex.SetBorder(true)
-	flex.SetTitle(" Add path (Tab input/tree · →← expand · ↵ select · . hidden · Esc) ")
+	title := browserTitle
+	if welcome {
+		title = browserWelcomeTitle
+	}
+	flex.SetTitle(title)
 
 	a.pages.AddPage(pageAddPath, centeredPct(flex, browserWidthPct, browserHeightPct), true, true)
 	a.tv.SetFocus(b.tree)
@@ -115,6 +146,16 @@ func (a *App) closeAddPath() {
 	a.pages.RemovePage(pageAddPath)
 	a.browser = nil
 	a.tv.SetFocus(a.tree)
+}
+
+// dismissBrowser closes the picker without adding; dismissing the welcome
+// variant leaves a hint so the first-run user still knows where to go next.
+func (a *App) dismissBrowser() {
+	welcome := a.browser != nil && a.browser.welcome
+	a.closeAddPath()
+	if welcome {
+		a.setStatus(msgInfo, "%s", dismissHint)
+	}
 }
 
 // browserSelect mirrors the tree selection into the input field — the
@@ -184,7 +225,7 @@ func (a *App) handleBrowserKey(ev *tcell.EventKey) *tcell.EventKey {
 	}
 	switch ev.Key() {
 	case tcell.KeyEscape:
-		a.closeAddPath()
+		a.dismissBrowser()
 		return nil
 	case tcell.KeyTab, tcell.KeyBacktab:
 		a.tv.SetFocus(b.input)
