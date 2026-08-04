@@ -54,7 +54,9 @@ lazyncu
 
 `lazyncu --version` prints the version, commit, and build date.
 
-All sources scan in parallel; results stream in as each finishes. Select a source or project in the left panel to see its packages, toggle the vulnerability view, and copy the suggested command.
+On the very first launch the folder browser opens automatically so you can
+pick a folder to scan right away — `Esc` skips it. All sources scan in
+parallel; results stream in as each finishes. Select a source or project in the left panel to see its packages, toggle the vulnerability view, and copy the suggested command.
 
 ### Keybindings
 
