@@ -134,23 +134,59 @@ func TestDetailTitleComposition(t *testing.T) {
 		{false, sortSeverity, "axi", " 2 Packages (v for vulnerabilities) · sort: severity · /axi "},
 	}
 	for _, tc := range cases {
-		if got := detailTitle(tc.vulns, tc.mode, tc.filter, 0, 0); got != tc.want {
+		if got := detailTitle(tc.vulns, tc.mode, tc.filter, 0, 0, ""); got != tc.want {
 			t.Errorf("detailTitle(%v,%d,%q) = %q, want %q", tc.vulns, tc.mode, tc.filter, got, tc.want)
 		}
 	}
 }
 
 func TestDetailTitleMarkCounter(t *testing.T) {
-	got := detailTitle(false, sortScan, "", 2, 6)
+	got := detailTitle(false, sortScan, "", 2, 6, "")
 	if got != " 2 Packages (v for vulnerabilities) · 2/6 marked " {
 		t.Errorf("marked title = %q", got)
 	}
 	// Hidden at zero and in the vulns view.
-	if got := detailTitle(false, sortScan, "", 0, 6); got != " 2 Packages (v for vulnerabilities) " {
+	if got := detailTitle(false, sortScan, "", 0, 6, ""); got != " 2 Packages (v for vulnerabilities) " {
 		t.Errorf("zero marks must hide the counter: %q", got)
 	}
-	if got := detailTitle(true, sortScan, "", 2, 6); got != " 2 Vulnerabilities (v to go back) " {
+	if got := detailTitle(true, sortScan, "", 2, 6, ""); got != " 2 Vulnerabilities (v to go back) " {
 		t.Errorf("vulns view must not show the counter: %q", got)
+	}
+}
+
+func TestDetailTitleNodeContext(t *testing.T) {
+	// Appended after every other segment, in both views.
+	got := detailTitle(false, sortSeverity, "axi", 0, 0, "node 18.19.0 (.nvmrc)")
+	want := " 2 Packages (v for vulnerabilities) · sort: severity · /axi · node 18.19.0 (.nvmrc) "
+	if got != want {
+		t.Errorf("node segment title = %q, want %q", got, want)
+	}
+	got = detailTitle(true, sortScan, "", 0, 0, "node >=18 (engines)")
+	if got != " 2 Vulnerabilities (v to go back) · node >=18 (engines) " {
+		t.Errorf("vulns view node segment = %q", got)
+	}
+	// Empty context adds nothing.
+	if got := detailTitle(false, sortScan, "", 0, 0, ""); got != " 2 Packages (v for vulnerabilities) " {
+		t.Errorf("empty node context must add no segment: %q", got)
+	}
+}
+
+func TestNodeContextLabel(t *testing.T) {
+	cases := []struct {
+		name    string
+		nvmrc   string
+		engines string
+		want    string
+	}{
+		{"nvmrc wins over engines", "18.19.0", ">=18", "node 18.19.0 (.nvmrc)"},
+		{"engines fallback", "", ">=18 <21", "node >=18 <21 (engines)"},
+		{"lts alias shown verbatim", "lts/gallium", "", "node lts/gallium (.nvmrc)"},
+		{"neither yields empty", "", "", ""},
+	}
+	for _, tc := range cases {
+		if got := nodeContextLabel(tc.nvmrc, tc.engines); got != tc.want {
+			t.Errorf("%s: nodeContextLabel(%q, %q) = %q, want %q", tc.name, tc.nvmrc, tc.engines, got, tc.want)
+		}
 	}
 }
 
