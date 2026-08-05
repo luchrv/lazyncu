@@ -24,7 +24,7 @@ func (fakeScanner) ScanPath(context.Context, string) ([]scanner.Project, error) 
 func newTestApp(t *testing.T) *App {
 	t.Helper()
 	return New(context.Background(), config.Config{}, t.TempDir()+"/config.toml",
-		fakeScanner{}, nil, false)
+		fakeScanner{}, nil, false, nil)
 }
 
 // registerPath adds a source to the app state the way a config entry would,

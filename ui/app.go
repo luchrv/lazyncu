@@ -62,9 +62,13 @@ type App struct {
 	// firstRun is true when the config file was created by this launch; it
 	// triggers the one-time welcome browser.
 	firstRun bool
-	showVulns   bool
-	msgsHidden  bool
-	lastMsg     string
+	// launch is the classified positional CLI argument (nil without one);
+	// pendingProject defers selecting its project until the scan lands.
+	launch         *Launch
+	pendingProject *pendingSelect
+	showVulns      bool
+	msgsHidden     bool
+	lastMsg        string
 	// msgGen increments on every status message; expiry timers compare
 	// against it so they never clear a newer message. expiresGen records
 	// the last generation that scheduled an expiry (errors do not).
@@ -128,9 +132,10 @@ func (a *App) clearMarks() {
 
 // New assembles the dashboard around an already-loaded config. firstRun
 // marks a launch that just created the config file, enabling the one-time
-// welcome browser.
+// welcome browser. l carries the classified positional CLI argument (nil
+// when launched without one).
 func New(ctx context.Context, cfg config.Config, cfgPath string,
-	sc orchestrator.Scanner, auditor orchestrator.Auditor, firstRun bool) *App {
+	sc orchestrator.Scanner, auditor orchestrator.Auditor, firstRun bool, l *Launch) *App {
 	a := &App{
 		tv:       tview.NewApplication(),
 		ctx:      ctx,
@@ -148,6 +153,7 @@ func New(ctx context.Context, cfg config.Config, cfgPath string,
 		a.order = append(a.order, p.Path)
 		a.state[p.Path] = &sourceState{loading: true}
 	}
+	a.applyLaunch(l)
 	a.buildLayout()
 	return a
 }
@@ -161,6 +167,7 @@ func (a *App) Run() error {
 	a.consume(orchestrator.Run(a.ctx, a.sc, a.auditor, paths))
 
 	a.refreshAll()
+	a.maybeOfferConsolidation()
 	a.maybeOpenWelcome()
 	return a.tv.SetRoot(a.pages, true).EnableMouse(true).Run()
 }
@@ -197,6 +204,7 @@ func (a *App) applyEvent(ev orchestrator.Event) {
 	}
 	st.loading = false
 	st.event = ev
+	a.resolvePendingSelection(ev)
 	a.refreshAll()
 }
 

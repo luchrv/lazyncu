@@ -49,10 +49,20 @@ git clone https://github.com/luchrv/lazyncu && cd lazyncu && make build
 ## Usage
 
 ```sh
-lazyncu
+lazyncu           # open the dashboard with your registered paths
+lazyncu .         # also register the current directory (or jump to it)
+lazyncu <path>    # same, for any path (relative, absolute, or ~/…)
 ```
 
 `lazyncu --version` prints the version, commit, and build date.
+
+The optional path argument registers the directory and lands the cursor on
+it. If the path is already registered — or sits inside a registered folder —
+nothing is added and the cursor simply moves there once its scan finishes.
+If it is a parent of already-registered paths, lazyncu registers the parent
+and offers to stop tracking the now-covered children. Paths that don't
+contain a Node project (no `package.json` at the root or in nearby
+subdirectories) are rejected before the dashboard opens.
 
 On the very first launch the folder browser opens automatically so you can
 pick a folder to scan right away — `Esc` skips it. All sources scan in
