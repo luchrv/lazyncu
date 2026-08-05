@@ -129,7 +129,7 @@ Mark packages with `Space` to narrow the update command to just those:
 
 ## Configuration
 
-`$XDG_CONFIG_HOME/lazyncu/config.toml` (default `~/.config/lazyncu/config.toml`), created on first launch. Manage paths from the UI (`a` registers a path, persists it, and scans it immediately) or edit by hand:
+`$XDG_CONFIG_HOME/lazyncu/config.toml` (default `~/.config/lazyncu/config.toml`), created on first launch. Manage paths from the UI (`a` registers a path, persists it, and scans it immediately), from the command line (`lazyncu .` / `lazyncu <path>` registers the directory on launch), or edit by hand:
 
 ![add path demo](assets/demo/add-path.gif)
 
@@ -174,7 +174,7 @@ make release-check  # dry-run the goreleaser pipeline locally (needs goreleaser)
 Releases are automated: pushing a `v*` tag runs goreleaser via GitHub Actions.
 See [docs/RELEASING.md](docs/RELEASING.md).
 
-Business logic lives in pure, exec-injected packages (`config`, `detect`, `scanner`, `semver`, `command`, `audit`, `orchestrator`); the `ui` package is a thin tview layer where every async widget update passes through a single `QueueUpdateDraw` choke point.
+Business logic lives in pure, exec-injected packages (`config`, `detect`, `scanner`, `semver`, `command`, `audit`, `orchestrator`, `launch`); the `ui` package is a thin tview layer where every async widget update passes through a single `QueueUpdateDraw` choke point.
 
 ## License
 
