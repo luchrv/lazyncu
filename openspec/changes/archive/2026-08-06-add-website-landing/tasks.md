@@ -29,5 +29,5 @@
 
 - [x] 5.1 Local check: `npm run build` in `website/` succeeds; `astro preview` — both locales render, videos autoplay, install commands copy, switcher and badge work with the `/lazyncu` base path
 - [x] 5.2 Go toolchain untouched: `go vet ./...`, `go build ./...`, `go test ./...` all pass with no new files in the module
-- [ ] 5.3 Post-merge smoke: Pages workflow green, `https://luchrv.github.io/lazyncu/` and `/es/` live with working videos (user)
+- [x] 5.3 Post-merge smoke: Pages workflow green, `https://luchrv.github.io/lazyncu/` and `/es/` live with working videos (user)
 - [x] 5.4 Update README with a link to the website
