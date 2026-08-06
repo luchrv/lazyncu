@@ -2,6 +2,8 @@
 # Run via `make demos` (needs assets/tapes/setup-demo-env.sh first).
 
 Output assets/demo/vulns.gif
+Output website/public/demos/vulns.mp4
+Output website/public/demos/vulns.webm
 
 Set FontSize 15
 Set Width 1200

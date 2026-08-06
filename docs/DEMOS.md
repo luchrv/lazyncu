@@ -1,8 +1,8 @@
 # Recording demos
 
-The README GIFs are not screen recordings — they are rendered from
-[VHS](https://github.com/charmbracelet/vhs) tape files, so anyone can
-regenerate them identically after a UI change.
+The README GIFs and the website videos are not screen recordings — they are
+rendered from [VHS](https://github.com/charmbracelet/vhs) tape files, so
+anyone can regenerate them identically after a UI change.
 
 ```
 demo/fixtures/           assets/tapes/*.tape
@@ -11,8 +11,10 @@ demo/fixtures/           assets/tapes/*.tape
         │                         │
         └──────► make demos ◄─────┘
                      │
-                     ▼
-            assets/demo/*.gif  ──► embedded in README.md
+        ┌────────────┴──────────────────┐
+        ▼                               ▼
+assets/demo/*.gif            website/public/demos/*.{mp4,webm}
+  (embedded in README.md)      (embedded in the landing page)
 ```
 
 ## Prerequisites
@@ -37,14 +39,18 @@ This runs `assets/tapes/setup-demo-env.sh`, which:
    `~/.config/lazyncu` is never read or written.
 3. Builds the binary.
 
-Then it renders each tape in `assets/tapes/` to its GIF in `assets/demo/`.
+Then it renders each tape in `assets/tapes/`. Every tape has three `Output`
+lines, so one run produces the README GIF in `assets/demo/` plus the `mp4`
+and `webm` variants the landing page embeds from `website/public/demos/`.
 
 ## Tape anatomy
 
 Annotated excerpt from `hero.tape`:
 
 ```tape
-Output assets/demo/hero.gif   # where the GIF lands
+Output assets/demo/hero.gif             # where the GIF lands (README)
+Output website/public/demos/hero.mp4    # video variants for the website
+Output website/public/demos/hero.webm
 
 Set FontSize 15               # pin rendering so output is identical
 Set Width 1200                # on every machine
@@ -91,7 +97,9 @@ lockfile with `npm install --package-lock-only`, and re-record.
    so viewers can read.
 4. Add the tape to the `demos` target in the Makefile.
 5. Run `make demos`, inspect the GIF, tune timing.
-6. Reference it from the README: `![<alt>](assets/demo/<feature>.gif)`.
+6. Reference it from the README: `![<alt>](assets/demo/<feature>.gif)`. If
+   the website should show it too, add the `mp4`/`webm` `Output` lines
+   targeting `website/public/demos/` and reference it from the landing page.
 
 Keep GIFs under ~3 MB (current ones are well below); if one balloons, reduce
 duration before resolution.

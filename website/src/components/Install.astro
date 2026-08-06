@@ -1,0 +1,120 @@
+---
+import type { Dictionary } from '../i18n/types';
+
+interface Props {
+  dict: Dictionary;
+}
+
+const { dict } = Astro.props;
+const RELEASES_URL = 'https://github.com/luchrv/lazyncu/releases';
+---
+
+<section class="install" id="install">
+  <h2><span class="prompt">##</span> {dict.install.heading}</h2>
+  {
+    dict.install.methods.map((method) => (
+      <div class="method">
+        <p class="label">{method.label}</p>
+        <div class="command">
+          <code>
+            <span class="prompt">$</span> {method.command}
+          </code>
+          <button
+            type="button"
+            data-command={method.command}
+            data-copy-label={dict.install.copyLabel}
+            data-copied-label={dict.install.copiedLabel}
+          >
+            {dict.install.copyLabel}
+          </button>
+        </div>
+      </div>
+    ))
+  }
+  <p class="binaries">
+    {dict.install.binaries.label}
+    <a href={RELEASES_URL} target="_blank" rel="noopener">{dict.install.binaries.linkText}</a>
+  </p>
+</section>
+
+<script>
+  const RESET_DELAY_MS = 2000;
+
+  for (const button of document.querySelectorAll<HTMLButtonElement>('button[data-command]')) {
+    button.addEventListener('click', async () => {
+      const { command, copyLabel, copiedLabel } = button.dataset;
+      if (!command) return;
+      try {
+        await navigator.clipboard.writeText(command);
+        button.textContent = copiedLabel ?? '';
+        setTimeout(() => {
+          button.textContent = copyLabel ?? '';
+        }, RESET_DELAY_MS);
+      } catch {
+        // Clipboard unavailable (permissions/insecure context): leave the label as-is;
+        // the command text stays selectable for manual copy.
+      }
+    });
+  }
+</script>
+
+<style>
+  .install {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 2rem 1.25rem;
+  }
+
+  h2 {
+    font-size: 1.5rem;
+  }
+
+  .prompt {
+    color: var(--accent);
+  }
+
+  .label {
+    color: var(--fg-muted);
+    margin-bottom: 0.4rem;
+    font-size: 0.925rem;
+  }
+
+  .command {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    background: var(--bg-inset);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.75rem 1rem;
+    margin-bottom: 1.25rem;
+    overflow-x: auto;
+  }
+
+  code {
+    white-space: nowrap;
+  }
+
+  button {
+    font: inherit;
+    font-size: 0.8rem;
+    color: var(--fg);
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.25rem 0.75rem;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  button:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .binaries {
+    color: var(--fg-muted);
+    font-size: 0.925rem;
+  }
+</style>

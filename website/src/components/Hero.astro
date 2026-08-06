@@ -1,0 +1,86 @@
+---
+import type { Dictionary } from '../i18n/types';
+import DemoVideo from './DemoVideo.astro';
+
+interface Props {
+  dict: Dictionary;
+}
+
+const { dict } = Astro.props;
+const REPO_URL = 'https://github.com/luchrv/lazyncu';
+const VERSION_BADGE = 'https://img.shields.io/github/v/release/luchrv/lazyncu?style=flat-square&color=50fa7b';
+---
+
+<section class="hero">
+  <h1><span class="prompt">$</span> lazyncu</h1>
+  <a href={`${REPO_URL}/releases/latest`} target="_blank" rel="noopener">
+    <img class="badge" src={VERSION_BADGE} alt="latest release" width="90" height="20" />
+  </a>
+  <p class="tagline">{dict.hero.tagline}</p>
+  <p class="subtitle">{dict.hero.subtitle}</p>
+  <p class="actions">
+    <a class="button primary" href="#install">{dict.hero.ctaInstall}</a>
+    <a class="button" href={REPO_URL} target="_blank" rel="noopener">{dict.hero.ctaGithub}</a>
+  </p>
+  <DemoVideo name="hero" fallback={dict.hero.videoFallback} />
+</section>
+
+<style>
+  .hero {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 3rem 1.25rem 2rem;
+    text-align: center;
+  }
+
+  h1 {
+    font-size: 2.75rem;
+    margin: 0 0 0.5rem;
+  }
+
+  .prompt {
+    color: var(--accent);
+  }
+
+  .badge {
+    height: 20px;
+    width: auto;
+  }
+
+  .tagline {
+    font-size: 1.35rem;
+    font-weight: 700;
+    margin: 1rem 0 0.5rem;
+  }
+
+  .subtitle {
+    color: var(--fg-muted);
+    max-width: 44rem;
+    margin: 0 auto 1.5rem;
+  }
+
+  .actions {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin: 0 0 2rem;
+  }
+
+  .button {
+    display: inline-block;
+    padding: 0.5rem 1.25rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    text-decoration: none;
+    color: var(--fg);
+  }
+
+  .button.primary {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .button:hover {
+    background: var(--bg-raised);
+  }
+</style>

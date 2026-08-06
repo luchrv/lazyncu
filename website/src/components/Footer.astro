@@ -1,0 +1,34 @@
+---
+import type { Dictionary } from '../i18n/types';
+
+interface Props {
+  dict: Dictionary;
+}
+
+const { dict } = Astro.props;
+const REPO_URL = 'https://github.com/luchrv/lazyncu';
+---
+
+<footer>
+  <p>
+    <a href={REPO_URL} target="_blank" rel="noopener">luchrv/lazyncu</a>
+    · <a href={`${REPO_URL}/blob/main/LICENSE`} target="_blank" rel="noopener">{dict.footer.license}</a>
+  </p>
+  <p class="made-with">{dict.footer.madeWith}</p>
+</footer>
+
+<style>
+  footer {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 2rem 1.25rem 3rem;
+    text-align: center;
+    color: var(--fg-muted);
+    font-size: 0.875rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .made-with {
+    margin-bottom: 0;
+  }
+</style>

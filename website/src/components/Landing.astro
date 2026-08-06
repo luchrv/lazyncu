@@ -1,0 +1,26 @@
+---
+import type { Dictionary } from '../i18n/types';
+import Base from '../layouts/Base.astro';
+import Header from './Header.astro';
+import Hero from './Hero.astro';
+import Features from './Features.astro';
+import Install from './Install.astro';
+import Footer from './Footer.astro';
+
+interface Props {
+  locale: 'en' | 'es';
+  dict: Dictionary;
+}
+
+const { locale, dict } = Astro.props;
+---
+
+<Base locale={locale} dict={dict}>
+  <Header dict={dict} />
+  <main>
+    <Hero dict={dict} />
+    <Features dict={dict} />
+    <Install dict={dict} />
+  </main>
+  <Footer dict={dict} />
+</Base>
