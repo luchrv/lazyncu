@@ -2,6 +2,8 @@
 # Run via `make demos` (needs assets/tapes/setup-demo-env.sh first).
 
 Output assets/demo/add-path.gif
+Output website/public/demos/add-path.mp4
+Output website/public/demos/add-path.webm
 
 Set FontSize 15
 Set Width 1200

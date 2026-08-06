@@ -1,0 +1,63 @@
+---
+import type { Dictionary } from '../i18n/types';
+import { withBase } from '../lib/paths';
+
+interface Props {
+  dict: Dictionary;
+}
+
+const { dict } = Astro.props;
+const REPO_URL = 'https://github.com/luchrv/lazyncu';
+---
+
+<header>
+  <span class="brand"><span class="prompt">$</span> lazyncu</span>
+  <nav>
+    <a href="#install">{dict.nav.install}</a>
+    <a href={REPO_URL} target="_blank" rel="noopener">{dict.nav.github}</a>
+    <a class="lang" href={withBase(dict.nav.languageSwitchHref)}>
+      {dict.nav.languageSwitch}
+    </a>
+  </nav>
+</header>
+
+<style>
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 1rem 1.25rem;
+  }
+
+  .brand {
+    font-weight: 700;
+  }
+
+  .prompt {
+    color: var(--accent);
+  }
+
+  nav {
+    display: flex;
+    gap: 1.25rem;
+  }
+
+  nav a {
+    text-decoration: none;
+    color: var(--fg-muted);
+  }
+
+  nav a:hover {
+    color: var(--accent);
+  }
+
+  .lang {
+    color: var(--fg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.1rem 0.6rem;
+  }
+</style>

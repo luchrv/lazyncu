@@ -1,0 +1,72 @@
+---
+import type { Dictionary } from '../i18n/types';
+import DemoVideo from './DemoVideo.astro';
+
+interface Props {
+  dict: Dictionary;
+}
+
+const { dict } = Astro.props;
+---
+
+<section class="features" id="features">
+  <h2><span class="prompt">##</span> {dict.features.heading}</h2>
+  <div class="grid">
+    {
+      dict.features.items.map((item) => (
+        <article>
+          <h3>{item.title}</h3>
+          <p>{item.description}</p>
+          {item.demo && item.demo !== 'hero' && (
+            <DemoVideo name={item.demo} fallback={dict.hero.videoFallback} />
+          )}
+        </article>
+      ))
+    }
+  </div>
+</section>
+
+<style>
+  .features {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 2rem 1.25rem;
+  }
+
+  h2 {
+    font-size: 1.5rem;
+  }
+
+  .prompt {
+    color: var(--accent);
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(24rem, 1fr));
+    gap: 1.25rem;
+  }
+
+  article {
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+  }
+
+  article h3 {
+    margin-top: 0;
+    font-size: 1.05rem;
+  }
+
+  article p {
+    color: var(--fg-muted);
+    font-size: 0.925rem;
+  }
+
+  @media (max-width: 640px) {
+    .grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

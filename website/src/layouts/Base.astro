@@ -1,0 +1,93 @@
+---
+import type { Dictionary } from '../i18n/types';
+
+interface Props {
+  locale: 'en' | 'es';
+  dict: Dictionary;
+}
+
+const { locale, dict } = Astro.props;
+
+const site = Astro.site?.href.replace(/\/$/, '') ?? '';
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const enUrl = `${site}${base}/`;
+const esUrl = `${site}${base}/es/`;
+const canonical = locale === 'es' ? esUrl : enUrl;
+---
+
+<html lang={locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{dict.meta.title}</title>
+    <meta name="description" content={dict.meta.description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="alternate" hreflang="en" href={enUrl} />
+    <link rel="alternate" hreflang="es" href={esUrl} />
+    <link rel="alternate" hreflang="x-default" href={enUrl} />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={dict.meta.title} />
+    <meta property="og:description" content={dict.meta.description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:locale" content={locale === 'es' ? 'es_ES' : 'en_US'} />
+    <meta name="color-scheme" content="dark" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⬆️</text></svg>"
+    />
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    /* Terminal palette — dark by default, Dracula-adjacent to match the demos. */
+    --bg: #16181d;
+    --bg-raised: #1e2128;
+    --bg-inset: #101216;
+    --border: #2c303a;
+    --fg: #e6e6e6;
+    --fg-muted: #9aa0ac;
+    --accent: #50fa7b;
+    --accent-dim: #2c7a44;
+    --major: #ff5555;
+    --minor: #f1fa8c;
+    --patch: #8be9fd;
+    --link: #8be9fd;
+    --font-mono: 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
+    --radius: 8px;
+    --max-width: 60rem;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-mono);
+    line-height: 1.6;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a {
+    color: var(--link);
+  }
+
+  a:hover {
+    color: var(--accent);
+  }
+
+  ::selection {
+    background: var(--accent-dim);
+    color: var(--fg);
+  }
+</style>

@@ -8,6 +8,8 @@
 
 A read-only terminal dashboard for [npm-check-updates](https://github.com/raineorshine/npm-check-updates). It answers one question at a glance: **which of my projects need updates, and how urgent are they?**
 
+**Website:** [luchrv.github.io/lazyncu](https://luchrv.github.io/lazyncu/) (also [en español](https://luchrv.github.io/lazyncu/es/))
+
 ![lazyncu demo](assets/demo/hero.gif)
 
 - Scans **global packages** (`ncu -g`) and every **registered path** in parallel on launch.
