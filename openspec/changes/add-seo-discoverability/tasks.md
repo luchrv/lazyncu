@@ -17,6 +17,6 @@
 
 ## 4. Ship and verify live
 
-- [ ] 4.1 Commit on a feature branch, open PR, merge to `main`, confirm the Pages workflow deploys
-- [ ] 4.2 Smoke live URLs: `curl` the deployed `robots.txt`, `sitemap-index.xml`, and `/` for the verification tag
+- [x] 4.1 Commit on a feature branch, open PR, merge to `main`, confirm the Pages workflow deploys
+- [x] 4.2 Smoke live URLs: `curl` the deployed `robots.txt`, `sitemap-index.xml`, and `/` for the verification tag
 - [ ] 4.3 Owner (manual, outside repo): verify the GSC property, submit `sitemap-index.xml`, request indexing of `/` and `/es/`
