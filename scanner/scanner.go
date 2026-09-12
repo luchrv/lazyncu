@@ -3,6 +3,7 @@ package scanner
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"os"
@@ -66,12 +67,22 @@ func (s Scanner) ScanGlobal(ctx context.Context) ([]Package, error) {
 	return buildPackages(upgraded, installed), nil
 }
 
-// ScanPath scans one registered path, choosing plain or deep mode via detect.
+// ErrFolderNotScannable reports a direct scan of a folder of repositories:
+// folders are expanded by the orchestrator into one ScanPath per repository.
+var ErrFolderNotScannable = errors.New("folder of repositories must be expanded into its repositories before scanning")
+
+// ScanPath scans one path — a single project or a workspaces monorepo —
+// choosing the ncu invocation via detect. A folder of repositories is
+// refused: callers discover its repositories and scan each one.
 func (s Scanner) ScanPath(ctx context.Context, dir string) ([]Project, error) {
-	if detect.ScanMode(dir) == detect.ModeDeep {
+	switch detect.ScanMode(dir) {
+	case detect.ModeDeep:
 		return s.scanDeep(ctx, dir)
+	case detect.ModeFolder:
+		return nil, fmt.Errorf("%s: %w", dir, ErrFolderNotScannable)
+	default:
+		return s.scanSingle(ctx, dir)
 	}
-	return s.scanSingle(ctx, dir)
 }
 
 func (s Scanner) scanSingle(ctx context.Context, dir string) ([]Project, error) {

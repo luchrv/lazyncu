@@ -29,7 +29,7 @@ func (a *App) refreshTree() {
 			selectedNode = node
 		}
 		for i, pr := range st.event.Projects {
-			child := tview.NewTreeNode(projectText(pr)).
+			child := tview.NewTreeNode(projectText(pr, spinner)).
 				SetReference(selection{source: src, projectIdx: i})
 			if child.GetReference() == a.sel {
 				selectedNode = child
@@ -78,7 +78,11 @@ func sourceText(src string, st *sourceState, spinner string) string {
 	if src != orchestrator.SourceGlobal {
 		name = filepath.Base(src)
 	}
+	total := len(st.event.Projects)
 	switch {
+	case st.loading && st.event.Folder && total > 0:
+		return fmt.Sprintf("%s  [gray]%s scanning %d/%d[-]",
+			name, spinner, total-pendingCount(st.event.Projects), total)
 	case st.loading:
 		return fmt.Sprintf("%s  [gray]%s scanning…[-]", name, spinner)
 	case st.event.Err != nil:
@@ -86,25 +90,41 @@ func sourceText(src string, st *sourceState, spinner string) string {
 	case src == orchestrator.SourceGlobal:
 		return fmt.Sprintf("%s  %s [gray]│ audit n/a[-]",
 			name, updateSummary(countPackages(st.event.Packages)))
+	case total == 0:
+		return fmt.Sprintf("%s  [gray]no projects found[-]", name)
 	default:
 		agg := aggregateSource(st.event.Projects)
-		return fmt.Sprintf("%s  %s [gray]│[-] %s",
+		text := fmt.Sprintf("%s  %s [gray]│[-] %s",
 			name, updateSummary(agg.updates), aggregateAuditText(agg))
+		if agg.scanFailed > 0 {
+			text += fmt.Sprintf(" [red]%d failed[-]", agg.scanFailed)
+		}
+		return text
 	}
 }
 
 // sourceAggregate sums a source's projects so the source row (and its
-// folded form) carries the same signal as the expanded list.
+// folded form) carries the same signal as the expanded list. Pending
+// entries contribute nothing; entries whose own scan failed are counted
+// separately and contribute nothing else.
 type sourceAggregate struct {
-	updates semver.Counters
-	vulns   audit.Counters // summed over successfully audited projects only
-	audited int            // projects with a usable audit
-	failed  int            // projects whose audit failed
+	updates    semver.Counters
+	vulns      audit.Counters // summed over successfully audited projects only
+	audited    int            // projects with a usable audit
+	failed     int            // projects whose audit failed
+	scanFailed int            // folder entries whose scan failed
 }
 
 func aggregateSource(projects []orchestrator.ProjectResult) sourceAggregate {
 	var agg sourceAggregate
 	for _, pr := range projects {
+		switch {
+		case pr.Pending:
+			continue
+		case pr.Err != nil:
+			agg.scanFailed++
+			continue
+		}
 		agg.updates.Major += pr.Counters.Major
 		agg.updates.Minor += pr.Counters.Minor
 		agg.updates.Patch += pr.Counters.Patch
@@ -141,7 +161,15 @@ func aggregateAuditText(agg sourceAggregate) string {
 	return out
 }
 
-func projectText(pr orchestrator.ProjectResult) string {
+// projectText renders one entry row; a folder entry still scanning shows
+// the spinner and one whose scan failed shows the error badge.
+func projectText(pr orchestrator.ProjectResult, spinner string) string {
+	switch {
+	case pr.Pending:
+		return fmt.Sprintf("%s  [gray]%s scanning…[-]", pr.Label, spinner)
+	case pr.Err != nil:
+		return fmt.Sprintf("%s  [red]✗ scan failed[-]", pr.Label)
+	}
 	return fmt.Sprintf("%s  %s [gray]│[-] %s",
 		pr.Label, updateSummary(pr.Counters), auditSummary(pr.Audit))
 }

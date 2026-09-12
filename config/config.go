@@ -16,6 +16,10 @@ import (
 // DefaultTimeoutMS is the scan timeout used when the config file sets none.
 const DefaultTimeoutMS = 30000
 
+// DefaultMaxParallel bounds concurrent external commands (ncu, npm ls, npm
+// audit) across all sources when the config file sets no max_parallel.
+const DefaultMaxParallel = 4
+
 const (
 	// appDirName is the config directory name. The app was renamed from
 	// ncu-tui; a leftover ~/.config/ncu-tui/ is deliberately not migrated.
@@ -33,8 +37,9 @@ type Path struct {
 // Config is the full persisted configuration. Update methods return new
 // values and never mutate the receiver.
 type Config struct {
-	TimeoutMS int    `toml:"timeout_ms,omitempty"`
-	Paths     []Path `toml:"paths,omitempty"`
+	TimeoutMS   int    `toml:"timeout_ms,omitempty"`
+	MaxParallel int    `toml:"max_parallel,omitempty"`
+	Paths       []Path `toml:"paths,omitempty"`
 }
 
 // FilePath resolves the config file location: $XDG_CONFIG_HOME/lazyncu/config.toml,
@@ -56,7 +61,7 @@ func FilePath() (string, error) {
 func Load(path string) (cfg Config, created bool, err error) {
 	data, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
-		cfg = Config{TimeoutMS: DefaultTimeoutMS}
+		cfg = Config{TimeoutMS: DefaultTimeoutMS, MaxParallel: DefaultMaxParallel}
 		if saveErr := Save(path, cfg); saveErr != nil {
 			return Config{}, false, fmt.Errorf("creating config file %s: %w", path, saveErr)
 		}
@@ -69,10 +74,19 @@ func Load(path string) (cfg Config, created bool, err error) {
 	if err := toml.Unmarshal(data, &cfg); err != nil {
 		return Config{}, false, fmt.Errorf("parsing config file %s: %w", path, err)
 	}
+	return applyDefaults(cfg), false, nil
+}
+
+// applyDefaults fills unset or invalid scan settings: a zero timeout and a
+// max_parallel below 1 both fall back to their defaults.
+func applyDefaults(cfg Config) Config {
 	if cfg.TimeoutMS == 0 {
 		cfg.TimeoutMS = DefaultTimeoutMS
 	}
-	return cfg, false, nil
+	if cfg.MaxParallel < 1 {
+		cfg.MaxParallel = DefaultMaxParallel
+	}
+	return cfg
 }
 
 // Save writes cfg to path, creating parent directories as needed.

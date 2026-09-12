@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"slices"
 	"time"
 
 	"github.com/rivo/tview"
@@ -26,6 +27,30 @@ type sourceState struct {
 	marks map[int]map[string]bool
 }
 
+// scanning reports whether the source has work in flight: its own scan, or
+// a folder entry being (re)scanned on its own.
+func (st *sourceState) scanning() bool {
+	return st.loading || pendingCount(st.event.Projects) > 0
+}
+
+// pendingCount counts folder entries whose repository scan has not landed.
+func pendingCount(projects []orchestrator.ProjectResult) int {
+	n := 0
+	for _, pr := range projects {
+		if pr.Pending {
+			n++
+		}
+	}
+	return n
+}
+
+// indexByLabel finds the entry with the given label, or -1.
+func indexByLabel(projects []orchestrator.ProjectResult, label string) int {
+	return slices.IndexFunc(projects, func(pr orchestrator.ProjectResult) bool {
+		return pr.Label == label
+	})
+}
+
 // selection identifies what the user has highlighted in the panel.
 type selection struct {
 	source string
@@ -40,8 +65,7 @@ type App struct {
 	ctx     context.Context
 	cfg     config.Config
 	cfgPath string
-	sc      orchestrator.Scanner
-	auditor orchestrator.Auditor
+	deps    orchestrator.Deps
 
 	state map[string]*sourceState
 	order []string
@@ -130,19 +154,19 @@ func (a *App) clearMarks() {
 	delete(st.marks, a.sel.projectIdx)
 }
 
-// New assembles the dashboard around an already-loaded config. firstRun
-// marks a launch that just created the config file, enabling the one-time
-// welcome browser. l carries the classified positional CLI argument (nil
-// when launched without one).
+// New assembles the dashboard around an already-loaded config. deps are the
+// scan collaborators handed to the orchestrator. firstRun marks a launch
+// that just created the config file, enabling the one-time welcome browser.
+// l carries the classified positional CLI argument (nil when launched
+// without one).
 func New(ctx context.Context, cfg config.Config, cfgPath string,
-	sc orchestrator.Scanner, auditor orchestrator.Auditor, firstRun bool, l *Launch) *App {
+	deps orchestrator.Deps, firstRun bool, l *Launch) *App {
 	a := &App{
 		tv:       tview.NewApplication(),
 		ctx:      ctx,
 		cfg:      cfg,
 		cfgPath:  cfgPath,
-		sc:       sc,
-		auditor:  auditor,
+		deps:     deps,
 		state:    map[string]*sourceState{},
 		sel:      selection{source: orchestrator.SourceGlobal, projectIdx: -1},
 		firstRun: firstRun,
@@ -164,7 +188,7 @@ func (a *App) Run() error {
 	for _, p := range a.cfg.Paths {
 		paths = append(paths, p.Path)
 	}
-	a.consume(orchestrator.Run(a.ctx, a.sc, a.auditor, paths))
+	a.consume(orchestrator.Run(a.ctx, a.deps, paths))
 
 	a.refreshAll()
 	a.maybeOfferConsolidation()
@@ -183,29 +207,47 @@ func (a *App) consume(events <-chan orchestrator.Event) {
 }
 
 // scanOne (re)scans a single source — the global one or a registered path —
-// through the same choke point as the launch fan-out.
+// through the same choke point as the launch fan-out. A folder source
+// streams several snapshots before its final one.
 func (a *App) scanOne(source string) {
-	go func() {
-		var ev orchestrator.Event
-		if source == orchestrator.SourceGlobal {
-			ev = orchestrator.RunGlobal(a.ctx, a.sc)
-		} else {
-			ev = orchestrator.RunOne(a.ctx, a.sc, a.auditor, source)
-		}
-		a.tv.QueueUpdateDraw(func() { a.applyEvent(ev) })
-	}()
+	if source == orchestrator.SourceGlobal {
+		go func() {
+			ev := orchestrator.RunGlobal(a.ctx, a.deps.Scanner)
+			a.tv.QueueUpdateDraw(func() { a.applyEvent(ev) })
+		}()
+		return
+	}
+	a.consume(orchestrator.RunOne(a.ctx, a.deps, source))
 }
 
-// applyEvent records one source result. Only ever called on the UI thread.
+// applyEvent records one source snapshot. Only ever called on the UI
+// thread. A snapshot that changes the entry count (a monorepo repository
+// expanding, a rediscovery) invalidates index-keyed marks and re-anchors
+// the selection by label, the same way a rescan does.
 func (a *App) applyEvent(ev orchestrator.Event) {
 	st, ok := a.state[ev.Source]
 	if !ok {
 		return // source removed while its scan was in flight
 	}
-	st.loading = false
+	prev := st.event.Projects
 	st.event = ev
+	st.loading = !ev.Done
+	if len(ev.Projects) != len(prev) {
+		st.marks = nil
+		a.reanchorSelection(ev.Source, prev, ev.Projects)
+	}
 	a.resolvePendingSelection(ev)
 	a.refreshAll()
+}
+
+// reanchorSelection keeps the cursor on the entry it pointed at (matched by
+// label) after a source's entry list changed shape; a vanished entry drops
+// the cursor back to the source row.
+func (a *App) reanchorSelection(source string, prev, next []orchestrator.ProjectResult) {
+	if a.sel.source != source || a.sel.projectIdx < 0 || a.sel.projectIdx >= len(prev) {
+		return
+	}
+	a.sel.projectIdx = indexByLabel(next, prev[a.sel.projectIdx].Label)
 }
 
 func (a *App) refreshAll() {
@@ -216,10 +258,11 @@ func (a *App) refreshAll() {
 	a.ensureSpinner()
 }
 
-// anyLoading reports whether any source's scan is still in flight.
+// anyLoading reports whether any source — or any folder entry — is still
+// scanning; it drives the spinner.
 func (a *App) anyLoading() bool {
 	for _, st := range a.state {
-		if st.loading {
+		if st.scanning() {
 			return true
 		}
 	}
@@ -396,7 +439,7 @@ func (a *App) escapeTree() {
 func (a *App) rescanAll() {
 	idle := make([]string, 0, len(a.order))
 	for _, src := range a.order {
-		if !a.state[src].loading {
+		if !a.state[src].scanning() {
 			idle = append(idle, src)
 		}
 	}
@@ -416,7 +459,7 @@ func (a *App) rescanAll() {
 func (a *App) doRescanAll(sources []string) {
 	for _, src := range sources {
 		st, ok := a.state[src]
-		if !ok || st.loading {
+		if !ok || st.scanning() {
 			continue
 		}
 		st.loading = true

@@ -21,7 +21,7 @@ func projectWithDir(dir string) scanner.Project {
 func newLaunchApp(t *testing.T, cfg config.Config, l *Launch) *App {
 	t.Helper()
 	return New(context.Background(), cfg, t.TempDir()+"/config.toml",
-		fakeScanner{}, nil, false, l)
+		orchestrator.Deps{Scanner: fakeScanner{}}, false, l)
 }
 
 func pathsConfig(paths ...string) config.Config {
@@ -74,6 +74,7 @@ func TestPendingSelectionMatchesProject(t *testing.T) {
 			{Project: projectWithDir("/projects/web")},
 			{Project: projectWithDir("/projects/api")},
 		},
+		Done: true,
 	})
 
 	expected := selection{source: "/projects", projectIdx: 1}
@@ -92,6 +93,7 @@ func TestPendingSelectionNoMatchKeepsSource(t *testing.T) {
 	a.applyEvent(orchestrator.Event{
 		Source:   "/projects",
 		Projects: []orchestrator.ProjectResult{{Project: projectWithDir("/projects/web")}},
+		Done:     true,
 	})
 
 	expected := selection{source: "/projects", projectIdx: -1}
@@ -107,7 +109,7 @@ func TestPendingSelectionScanErrorKeepsSource(t *testing.T) {
 	cfg := pathsConfig("/projects")
 	a := newLaunchApp(t, cfg, &Launch{Source: "/projects", ProjectDir: "/projects/api"})
 
-	a.applyEvent(orchestrator.Event{Source: "/projects", Err: errors.New("scan failed")})
+	a.applyEvent(orchestrator.Event{Source: "/projects", Err: errors.New("scan failed"), Done: true})
 
 	expected := selection{source: "/projects", projectIdx: -1}
 	if a.sel != expected {
@@ -135,7 +137,7 @@ func TestPendingSelectionIgnoresOtherSources(t *testing.T) {
 func TestConsolidateChildrenRemovesAndPersists(t *testing.T) {
 	cfg := pathsConfig("/projects/api", "/projects/web", "/other", "/projects")
 	cfgPath := t.TempDir() + "/config.toml"
-	a := New(context.Background(), cfg, cfgPath, fakeScanner{}, nil, false,
+	a := New(context.Background(), cfg, cfgPath, orchestrator.Deps{Scanner: fakeScanner{}}, false,
 		&Launch{Source: "/projects", CoveredChildren: []string{"/projects/api", "/projects/web"}})
 
 	a.consolidateChildren([]string{"/projects/api", "/projects/web"})

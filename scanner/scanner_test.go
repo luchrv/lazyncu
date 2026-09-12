@@ -253,16 +253,36 @@ func TestScanPathSingleUpToDate(t *testing.T) {
 
 // --- Deep scan ---
 
-func TestScanPathDeepFolderOfProjects(t *testing.T) {
-	// Arrange: a folder (no root package.json) with two projects
+func TestScanPathFolderIsRefused(t *testing.T) {
+	// Arrange: a folder (no root package.json) with two repositories
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "api", "package.json"), `{"dependencies":{"express":"^4.18.0"}}`)
-	writeFile(t, filepath.Join(root, "api", "package-lock.json"), "{}")
 	writeFile(t, filepath.Join(root, "web", "package.json"), `{"dependencies":{"react":"^18.2.0"}}`)
-	writeFile(t, filepath.Join(root, "web", "yarn.lock"), "")
+	r := &fakeRunner{responses: map[string]fakeResponse{}}
+
+	// Act
+	projects, err := New(r).ScanPath(context.Background(), root)
+
+	// Assert: no process spawned, explicit error
+	if !errors.Is(err, ErrFolderNotScannable) {
+		t.Fatalf("ScanPath() error = %v, want ErrFolderNotScannable", err)
+	}
+	if projects != nil || len(r.calls) != 0 {
+		t.Errorf("folder scan ran commands %v with projects %v; want none", r.calls, projects)
+	}
+}
+
+func TestScanPathDeepMonorepoWithRelativeKeys(t *testing.T) {
+	// Arrange: a workspaces monorepo with two packages; ncu emits relative keys
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "package.json"), `{"name":"mono","workspaces":["packages/*"]}`)
+	writeFile(t, filepath.Join(root, "packages", "api", "package.json"), `{"dependencies":{"express":"^4.18.0"}}`)
+	writeFile(t, filepath.Join(root, "packages", "api", "package-lock.json"), "{}")
+	writeFile(t, filepath.Join(root, "packages", "web", "package.json"), `{"dependencies":{"react":"^18.2.0"}}`)
+	writeFile(t, filepath.Join(root, "packages", "web", "yarn.lock"), "")
 	deepJSON := `{
-		"api/package.json": {"express":"^5.1.0"},
-		"web/package.json": {"react":"^18.3.1"}
+		"packages/api/package.json": {"express":"^5.1.0"},
+		"packages/web/package.json": {"react":"^18.3.1"}
 	}`
 	r := &fakeRunner{responses: map[string]fakeResponse{
 		"ncu --deep --jsonUpgraded --enginesNode": {stdout: []byte(deepJSON)},
@@ -282,12 +302,12 @@ func TestScanPathDeepFolderOfProjects(t *testing.T) {
 	for _, p := range projects {
 		byLabel[p.Label] = p
 	}
-	api, ok := byLabel["api"]
+	api, ok := byLabel[filepath.Join("packages", "api")]
 	if !ok {
-		t.Fatalf("missing project labeled 'api'; labels: %v", labels(projects))
+		t.Fatalf("missing project labeled packages/api; labels: %v", labels(projects))
 	}
-	if api.PM != detect.Npm || api.Dir != filepath.Join(root, "api") {
-		t.Errorf("api = {PM:%q Dir:%q}, want npm, %s", api.PM, api.Dir, filepath.Join(root, "api"))
+	if api.PM != detect.Npm || api.Dir != filepath.Join(root, "packages", "api") {
+		t.Errorf("api = {PM:%q Dir:%q}, want npm, %s", api.PM, api.Dir, filepath.Join(root, "packages", "api"))
 	}
 	if api.Packages[0].Current != "^4.18.0" || api.Packages[0].Severity != semver.Major {
 		t.Errorf("api express = %+v, want current ^4.18.0 major", api.Packages[0])
@@ -295,7 +315,7 @@ func TestScanPathDeepFolderOfProjects(t *testing.T) {
 	if api.Nvmrc != "" || api.EnginesNode != "" {
 		t.Errorf("api node context = {Nvmrc:%q EnginesNode:%q}, want empty (no declarations)", api.Nvmrc, api.EnginesNode)
 	}
-	if web := byLabel["web"]; web.PM != detect.Yarn {
+	if web := byLabel[filepath.Join("packages", "web")]; web.PM != detect.Yarn {
 		t.Errorf("web.PM = %q, want yarn", web.PM)
 	}
 }

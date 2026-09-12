@@ -46,24 +46,25 @@ type pendingSelect struct {
 	dir    string // comparable (symlink-resolved) form
 }
 
-// resolvePendingSelection moves the selection to the project entry matching
-// the pending target when its source's event arrives. Scan errors and
-// missing matches degrade to keeping the source selected. One-shot: the
-// first event for the source consumes the pending state either way.
+// resolvePendingSelection moves the selection to the settled entry matching
+// the pending target as its source's snapshots arrive; pending folder
+// entries are skipped so the cursor lands on a scanned project. Scan errors
+// and a final snapshot without a match degrade to keeping the source
+// selected, and consume the pending state.
 func (a *App) resolvePendingSelection(ev orchestrator.Event) {
 	p := a.pendingProject
 	if p == nil || ev.Source != p.source {
 		return
 	}
-	a.pendingProject = nil
-	if ev.Err != nil {
-		return
-	}
 	for i, pr := range ev.Projects {
-		if launch.Comparable(pr.Dir) == p.dir {
+		if !pr.Pending && launch.Comparable(pr.Dir) == p.dir {
 			a.sel = selection{source: p.source, projectIdx: i}
+			a.pendingProject = nil
 			return
 		}
+	}
+	if ev.Done || ev.Err != nil {
+		a.pendingProject = nil
 	}
 }
 
