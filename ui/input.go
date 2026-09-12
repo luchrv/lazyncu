@@ -1,11 +1,14 @@
 package ui
 
 import (
+	"slices"
+
 	"github.com/atotto/clipboard"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 
 	"github.com/luchrv/lazyncu/config"
+	"github.com/luchrv/lazyncu/detect"
 	"github.com/luchrv/lazyncu/orchestrator"
 )
 
@@ -145,7 +148,11 @@ func (a *App) rescanSelected() {
 	if !ok {
 		return
 	}
-	if st.loading {
+	if st.event.Folder && a.sel.projectIdx >= 0 && a.sel.projectIdx < len(st.event.Projects) {
+		a.rescanEntry(src, a.sel.projectIdx)
+		return
+	}
+	if st.scanning() {
 		a.setStatus(msgWarn, "%s is still scanning — rescan is disabled until it finishes", displayName(src))
 		return
 	}
@@ -169,6 +176,73 @@ func (a *App) doRescan(src string) {
 	a.scanOne(src)
 	a.refreshAll()
 	a.setStatus(msgInfo, "rescanning %s…", displayName(src))
+}
+
+// rescanEntry rescans one repository entry of a folder source, confirming
+// first when that entry holds marks. Disabled while the folder or the entry
+// itself is still scanning.
+func (a *App) rescanEntry(src string, idx int) {
+	st := a.state[src]
+	pr := st.event.Projects[idx]
+	if st.loading || pr.Pending {
+		a.setStatus(msgWarn, "%s is still scanning — rescan is disabled until it finishes", pr.Label)
+		return
+	}
+	if marks := len(st.marks[idx]); marks > 0 {
+		a.confirm(confirmRescanText(pr.Label, marks, 1), func() { a.doRescanEntry(src, idx) })
+		return
+	}
+	a.doRescanEntry(src, idx)
+}
+
+// doRescanEntry marks the entry pending, scans its repository off the UI
+// thread and splices the result back through the choke point. The folder
+// row is refused a rescan while the entry is pending, so no other snapshot
+// of this source can race the splice.
+func (a *App) doRescanEntry(src string, idx int) {
+	st, ok := a.state[src]
+	if !ok || idx >= len(st.event.Projects) {
+		return
+	}
+	pr := st.event.Projects[idx]
+	delete(st.marks, idx)
+	st.event.Projects = withPending(st.event.Projects, idx)
+	repo := detect.Repo{Dir: pr.Dir, Label: pr.Label}
+	go func() {
+		results := orchestrator.ScanProject(a.ctx, a.deps, repo)
+		a.tv.QueueUpdateDraw(func() { a.spliceEntry(src, repo.Label, results) })
+	}()
+	a.refreshAll()
+	a.setStatus(msgInfo, "rescanning %s…", pr.Label)
+}
+
+// spliceEntry replaces the pending entry with the given label by the
+// rescan results (one entry, or several for a monorepo repository).
+func (a *App) spliceEntry(src, label string, results []orchestrator.ProjectResult) {
+	st, ok := a.state[src]
+	if !ok {
+		return // source removed while the entry was scanning
+	}
+	idx := indexByLabel(st.event.Projects, label)
+	if idx < 0 {
+		return
+	}
+	prev := st.event.Projects
+	next := slices.Concat(prev[:idx], results, prev[idx+1:])
+	st.event.Projects = next
+	if len(next) != len(prev) {
+		st.marks = nil
+		a.reanchorSelection(src, prev, next)
+	}
+	a.refreshAll()
+}
+
+// withPending clones the entry list with entry idx flagged pending.
+func withPending(projects []orchestrator.ProjectResult, idx int) []orchestrator.ProjectResult {
+	next := slices.Clone(projects)
+	next[idx].Pending = true
+	next[idx].Err = nil
+	return next
 }
 
 func displayName(source string) string {

@@ -241,17 +241,24 @@ func (a *App) renderPackages() {
 	if !ok {
 		return
 	}
+	pr, hasProject := a.selectedProject()
 	switch {
-	case st.loading:
+	case hasProject && pr.Pending, !hasProject && st.loading:
 		a.detailMessage(spinnerGlyph(a.spinFrame) + " scanning…")
 		return
-	case st.event.Err != nil:
+	case hasProject && pr.Err != nil:
+		a.renderScanError(pr.Err)
+		return
+	case !hasProject && st.event.Err != nil:
 		a.renderScanError(st.event.Err)
+		return
+	case !hasProject && a.sel.source != orchestrator.SourceGlobal && len(st.event.Projects) == 0:
+		a.detailMessage("no projects found")
 		return
 	}
 
 	pkgs := st.event.Packages
-	if pr, ok := a.selectedProject(); ok {
+	if hasProject {
 		pkgs = pr.Packages
 	}
 	if len(pkgs) == 0 {
@@ -286,6 +293,10 @@ func (a *App) renderPackages() {
 }
 
 func (a *App) renderVulns() {
+	if pr, ok := a.selectedProject(); ok && (pr.Pending || pr.Err != nil) {
+		a.detailMessage("audit not available until the project scan completes")
+		return
+	}
 	res, ok := a.selectedAudit()
 	if !ok {
 		return
@@ -342,11 +353,14 @@ func (a *App) cmdBarInnerWidth() int {
 // the fix command is never affected by marks.
 func (a *App) currentCommands() (update, fix string) {
 	st, ok := a.state[a.sel.source]
-	if !ok || st.loading || st.event.Err != nil {
+	if !ok || st.event.Err != nil {
 		return "", ""
 	}
 	marks := a.currentMarks()
 	if a.sel.source == orchestrator.SourceGlobal {
+		if st.loading {
+			return "", ""
+		}
 		if len(marks) > 0 {
 			if filtered := command.GlobalUpdateFiltered(st.event.Packages, marks); filtered != "" {
 				return filtered, ""
@@ -354,8 +368,13 @@ func (a *App) currentCommands() (update, fix string) {
 		}
 		return command.GlobalUpdate(st.event.Packages), ""
 	}
+	// A folder keeps showing settled entries while siblings scan; any other
+	// source in flight shows stale results, so no command is offered.
+	if st.loading && !st.event.Folder {
+		return "", ""
+	}
 	pr, ok := a.selectedProject()
-	if !ok {
+	if !ok || pr.Pending || pr.Err != nil {
 		return "", ""
 	}
 	if len(pr.Packages) > 0 {

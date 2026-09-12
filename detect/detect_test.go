@@ -20,9 +20,19 @@ func TestScanMode(t *testing.T) {
 		want  Mode
 	}{
 		{
-			name:  "no package.json means folder of projects",
+			name:  "no package.json means folder of repositories",
 			setup: func(t *testing.T, dir string) {},
-			want:  ModeDeep,
+			want:  ModeFolder,
+		},
+		{
+			name: "folder holding a workspaces repository is still a folder",
+			setup: func(t *testing.T, dir string) {
+				if err := os.Mkdir(filepath.Join(dir, "mono"), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				writeFile(t, filepath.Join(dir, "mono"), "package.json", `{"name":"mono","workspaces":["packages/*"]}`)
+			},
+			want: ModeFolder,
 		},
 		{
 			name: "package.json with workspaces field means monorepo",
@@ -76,6 +86,28 @@ func TestScanMode(t *testing.T) {
 				t.Errorf("ScanMode() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestScanModeRepositoryInsideFolderIsDetectedIndependently(t *testing.T) {
+	// Arrange: a folder with a workspaces monorepo and a plain project
+	dir := t.TempDir()
+	for _, sub := range []string{"mono", "plain"} {
+		if err := os.Mkdir(filepath.Join(dir, sub), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeFile(t, filepath.Join(dir, "mono"), "package.json", `{"name":"mono","workspaces":["packages/*"]}`)
+	writeFile(t, filepath.Join(dir, "plain"), "package.json", `{"name":"plain"}`)
+
+	// Act
+	folder := ScanMode(dir)
+	mono := ScanMode(filepath.Join(dir, "mono"))
+	plain := ScanMode(filepath.Join(dir, "plain"))
+
+	// Assert
+	if folder != ModeFolder || mono != ModeDeep || plain != ModeSingle {
+		t.Errorf("modes = folder:%v mono:%v plain:%v, want folder/deep/single", folder, mono, plain)
 	}
 }
 

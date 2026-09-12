@@ -342,3 +342,85 @@ func TestSavePersistsImmediately(t *testing.T) {
 		t.Errorf("reloaded.Paths = %+v, want [%s]", reloaded.Paths, dir)
 	}
 }
+
+func TestMaxParallelDefaultsTo4(t *testing.T) {
+	// Arrange
+	path := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(path, []byte("timeout_ms = 60000\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Act
+	cfg, _, err := Load(path)
+
+	// Assert
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.MaxParallel != DefaultMaxParallel {
+		t.Errorf("MaxParallel = %d, want default %d", cfg.MaxParallel, DefaultMaxParallel)
+	}
+}
+
+func TestMaxParallelOverride(t *testing.T) {
+	// Arrange
+	path := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(path, []byte("max_parallel = 8\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Act
+	cfg, _, err := Load(path)
+
+	// Assert
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.MaxParallel != 8 {
+		t.Errorf("MaxParallel = %d, want 8", cfg.MaxParallel)
+	}
+}
+
+func TestMaxParallelInvalidFallsBack(t *testing.T) {
+	for _, raw := range []string{"max_parallel = 0\n", "max_parallel = -2\n"} {
+		// Arrange
+		path := filepath.Join(t.TempDir(), "config.toml")
+		if err := os.WriteFile(path, []byte(raw), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		// Act
+		cfg, _, err := Load(path)
+
+		// Assert
+		if err != nil {
+			t.Fatalf("Load() error = %v", err)
+		}
+		if cfg.MaxParallel != DefaultMaxParallel {
+			t.Errorf("%q: MaxParallel = %d, want default %d", raw, cfg.MaxParallel, DefaultMaxParallel)
+		}
+	}
+}
+
+func TestFirstLaunchWritesMaxParallel(t *testing.T) {
+	// Arrange
+	path := filepath.Join(t.TempDir(), "lazyncu", "config.toml")
+
+	// Act
+	cfg, created, err := Load(path)
+
+	// Assert
+	if err != nil || !created {
+		t.Fatalf("Load() = created %v, err %v; want a fresh config", created, err)
+	}
+	if cfg.MaxParallel != DefaultMaxParallel {
+		t.Errorf("MaxParallel = %d, want default %d", cfg.MaxParallel, DefaultMaxParallel)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "max_parallel = 4") {
+		t.Errorf("fresh config = %q, want a max_parallel = 4 line", data)
+	}
+}

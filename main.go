@@ -13,6 +13,7 @@ import (
 	"github.com/luchrv/lazyncu/config"
 	"github.com/luchrv/lazyncu/detect"
 	"github.com/luchrv/lazyncu/launch"
+	"github.com/luchrv/lazyncu/orchestrator"
 	"github.com/luchrv/lazyncu/scanner"
 	"github.com/luchrv/lazyncu/ui"
 	"github.com/luchrv/lazyncu/version"
@@ -75,7 +76,11 @@ func run(target string) error {
 		}
 	}
 
-	runner := scanner.ExecRunner{Timeout: time.Duration(cfg.TimeoutMS) * time.Millisecond}
+	// One bound for every external command (ncu, npm ls, npm audit) across
+	// all sources; the per-command timeout starts only once a slot is held.
+	runner := scanner.NewLimitedRunner(
+		scanner.ExecRunner{Timeout: time.Duration(cfg.TimeoutMS) * time.Millisecond},
+		cfg.MaxParallel)
 	sc := scanner.New(runner)
 
 	if err := sc.Preflight(ctx); err != nil {
@@ -85,7 +90,8 @@ func run(target string) error {
 	auditor := func(ctx context.Context, dir string, pm detect.PackageManager) audit.Result {
 		return audit.Run(ctx, runner, dir, pm)
 	}
-	return ui.New(ctx, cfg, cfgPath, sc, auditor, firstRun, intent).Run()
+	deps := orchestrator.Deps{Scanner: sc, Auditor: auditor, Discoverer: orchestrator.DiscoverRepos}
+	return ui.New(ctx, cfg, cfgPath, deps, firstRun, intent).Run()
 }
 
 // prepareLaunch classifies the positional path (registering it when new or

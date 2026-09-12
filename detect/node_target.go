@@ -41,13 +41,19 @@ func dirAction(root, path, name string) error {
 	if path == root {
 		return nil
 	}
-	if name == "node_modules" || strings.HasPrefix(name, ".") {
+	if isIgnoredDir(name) {
 		return fs.SkipDir
 	}
 	if depthBelow(root, path) >= maxNodeSearchDepth {
 		return fs.SkipDir
 	}
 	return nil
+}
+
+// isIgnoredDir reports directories no walk descends into: dependency trees
+// and dot-prefixed (hidden, tool state) directories.
+func isIgnoredDir(name string) bool {
+	return name == "node_modules" || strings.HasPrefix(name, ".")
 }
 
 // depthBelow counts how many levels path sits below root (root itself is 0).

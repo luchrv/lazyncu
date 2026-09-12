@@ -139,9 +139,10 @@ Mark packages with `Space` to narrow the update command to just those:
 
 ```toml
 timeout_ms = 30000   # per-command timeout (default 30000)
+max_parallel = 4     # concurrent ncu/npm processes across all sources (default 4)
 
 [[paths]]
-path = "/Users/me/projects"        # folder of projects → ncu --deep
+path = "/Users/me/projects"        # folder of repositories → one scan per repository
 
 [[paths]]
 path = "/Users/me/projects/my-app" # single project → ncu
@@ -151,9 +152,11 @@ How a path is scanned is re-detected on every launch:
 
 | Path contents | Mode |
 |---------------|------|
-| No `package.json` | `ncu --deep` (folder of projects) |
+| No `package.json` | Folder of repositories: each repository is discovered and scanned on its own |
 | `package.json` with `workspaces`, or `pnpm-workspace.yaml` | `ncu --deep` (monorepo) |
 | Plain `package.json` | `ncu` |
+
+A folder is walked to any depth until a `package.json` is found (that directory is one repository); `node_modules` and dot-directories are skipped. Symbolic links to directories are followed, each repository is listed once even when reachable through several links, and link cycles are cut. Repositories inside a folder appear as they finish, each with its own timeout, so one slow or broken repository never hides the others — select it and press `r` to retry just that one.
 
 ## Audit coverage notes
 

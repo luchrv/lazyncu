@@ -1,6 +1,8 @@
-// Package detect infers, per registered path, the ncu scan mode (single
-// project vs. deep) and the project's package manager from its lockfile.
-// Detection is stateless: it re-reads the filesystem on every call.
+// Package detect infers, per registered path, the scan mode (single
+// project, workspaces monorepo, or folder of repositories), discovers the
+// repositories inside a folder, and reads a project's package manager from
+// its lockfile. Detection is stateless: it re-reads the filesystem on every
+// call.
 package detect
 
 import (
@@ -16,8 +18,11 @@ type Mode string
 const (
 	// ModeSingle scans one package.json with plain `ncu`.
 	ModeSingle Mode = "single"
-	// ModeDeep scans recursively with `ncu --deep` (folder of projects or monorepo).
+	// ModeDeep scans a workspaces monorepo recursively with `ncu --deep`.
 	ModeDeep Mode = "deep"
+	// ModeFolder marks a folder of repositories: lazyncu discovers each
+	// repository (see Repos) and scans it on its own.
+	ModeFolder Mode = "folder"
 )
 
 // PackageManager identifies the tool that owns a project's lockfile.
@@ -29,13 +34,13 @@ const (
 	Yarn PackageManager = "yarn"
 )
 
-// ScanMode applies the decision tree: no package.json → deep (folder of
-// projects); package.json with a workspaces field or pnpm-workspace.yaml
+// ScanMode applies the decision tree: no package.json → folder (of
+// repositories); package.json with a workspaces field or pnpm-workspace.yaml
 // present → deep (monorepo); otherwise single.
 func ScanMode(dir string) Mode {
 	pkg, err := os.ReadFile(filepath.Join(dir, "package.json"))
 	if err != nil {
-		return ModeDeep
+		return ModeFolder
 	}
 	if _, err := os.Stat(filepath.Join(dir, "pnpm-workspace.yaml")); err == nil {
 		return ModeDeep
