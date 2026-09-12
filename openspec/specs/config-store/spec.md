@@ -1,8 +1,10 @@
 # config-store Specification
 
 ## Purpose
-Persist user settings — registered project paths and the per-command scan timeout — as a TOML file under the XDG config directory, created on first launch and editable both from the UI and by hand.
+Persist user settings — registered project paths, the per-command scan timeout and the concurrency bound — as a TOML file under the XDG config directory, created on first launch and editable both from the UI and by hand.
+
 ## Requirements
+
 ### Requirement: Configuration is persisted as a TOML file
 The system SHALL persist user configuration in a TOML file located at `$XDG_CONFIG_HOME/lazyncu/config.toml`, falling back to `~/.config/lazyncu/config.toml` when `XDG_CONFIG_HOME` is unset. A config directory left over from the application's previous name (`ncu-tui`) SHALL NOT be read or migrated.
 
@@ -55,3 +57,21 @@ The system SHALL read an optional `timeout_ms` setting from the config file and 
 - **WHEN** the config file has no `timeout_ms` entry
 - **THEN** scans are executed with the 30000 ms default
 
+### Requirement: Concurrency bound is configurable
+The system SHALL read an optional `max_parallel` setting from the config file and use it as the maximum number of external commands running at the same time across all sources, defaulting to 4 when absent. A value below 1 SHALL be treated as absent. The setting SHALL be optional in the file: existing config files without it keep working unchanged.
+
+#### Scenario: Custom bound configured
+- **WHEN** the config file sets `max_parallel = 8`
+- **THEN** at most 8 external commands run at the same time
+
+#### Scenario: No bound configured
+- **WHEN** the config file has no `max_parallel` entry
+- **THEN** at most 4 external commands run at the same time
+
+#### Scenario: Invalid bound falls back to default
+- **WHEN** the config file sets `max_parallel = 0` or a negative value
+- **THEN** the default of 4 is used
+
+#### Scenario: First launch writes the default bound
+- **WHEN** the config file is created on first launch
+- **THEN** it contains `max_parallel = 4` next to `timeout_ms`, so the setting is discoverable by hand-editing
