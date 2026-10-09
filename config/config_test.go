@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestFilePathUsesXDGConfigHome(t *testing.T) {
@@ -422,5 +423,53 @@ func TestFirstLaunchWritesMaxParallel(t *testing.T) {
 	}
 	if !strings.Contains(string(data), "max_parallel = 4") {
 		t.Errorf("fresh config = %q, want a max_parallel = 4 line", data)
+	}
+}
+
+func TestMaxRequestsAndCacheTTLDefaults(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(path, []byte("timeout_ms = 1000\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, _, err := Load(path)
+
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.MaxRequests != DefaultMaxRequests || cfg.CacheTTL != DefaultCacheTTL || cfg.CacheTTLDuration() != time.Hour {
+		t.Errorf("defaults = max_requests %d cache_ttl %q, want %d and %q", cfg.MaxRequests, cfg.CacheTTL, DefaultMaxRequests, DefaultCacheTTL)
+	}
+}
+
+func TestCacheTTLOverrideAndDisable(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(path, []byte("max_requests = 8\ncache_ttl = \"30m\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, _, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.MaxRequests != 8 || cfg.CacheTTLDuration() != 30*time.Minute {
+		t.Errorf("overrides = %d %v", cfg.MaxRequests, cfg.CacheTTLDuration())
+	}
+
+	if err := os.WriteFile(path, []byte("cache_ttl = \"0\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, _, err = Load(path)
+	if err != nil || cfg.CacheTTLDuration() != 0 {
+		t.Errorf("cache_ttl = \"0\": ttl %v err %v, want disabled", cfg.CacheTTLDuration(), err)
+	}
+}
+
+func TestCacheTTLInvalidIsRejected(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(path, []byte("cache_ttl = \"soon\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := Load(path); err == nil || !strings.Contains(err.Error(), "cache_ttl") {
+		t.Errorf("Load() error = %v, want a cache_ttl parse error naming the key", err)
 	}
 }

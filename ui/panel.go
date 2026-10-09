@@ -112,6 +112,7 @@ type sourceAggregate struct {
 	vulns      audit.Counters // summed over successfully audited projects only
 	audited    int            // projects with a usable audit
 	failed     int            // projects whose audit failed
+	pending    int            // projects whose audit is pending or running
 	scanFailed int            // folder entries whose scan failed
 }
 
@@ -137,16 +138,21 @@ func aggregateSource(projects []orchestrator.ProjectResult) sourceAggregate {
 			agg.vulns.Low += pr.Audit.Counters.Low
 		case audit.StatusFailed:
 			agg.failed++
+		case audit.StatusPending, audit.StatusRunning:
+			agg.pending++
 		}
 	}
 	return agg
 }
 
 // aggregateAuditText renders the audit side of a source row: letter sums
-// over audited projects, a ✗ marker when any project's audit failed, and
-// the n/a state when nothing produced a usable audit.
+// over audited projects, a ✗ marker when any project's audit failed, the
+// pending state while no project has been audited yet, and the n/a state
+// when nothing can produce a usable audit.
 func aggregateAuditText(agg sourceAggregate) string {
 	switch {
+	case agg.audited == 0 && agg.failed == 0 && agg.pending > 0:
+		return "[gray]audit pending[-]"
 	case agg.audited == 0 && agg.failed == 0:
 		return "[gray]audit n/a[-]"
 	case agg.vulns.Total() == 0 && agg.failed > 0:
@@ -203,6 +209,10 @@ func auditSummary(res audit.Result) string {
 		return "[gray]audit n/a[-]"
 	case audit.StatusFailed:
 		return "[red]audit ✗[-]"
+	case audit.StatusPending:
+		return "[gray]audit pending[-]"
+	case audit.StatusRunning:
+		return "[gray]auditing…[-]"
 	}
 	if res.Counters.Total() == 0 {
 		return "[green]0 vulns[-]"

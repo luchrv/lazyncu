@@ -308,6 +308,9 @@ func (a *App) renderVulns() {
 	case audit.StatusFailed:
 		a.detailMessage("audit failed: " + res.Err)
 		return
+	case audit.StatusPending, audit.StatusRunning:
+		a.detailMessage(spinnerGlyph(a.spinFrame) + " auditing…")
+		return
 	}
 	if len(res.Vulns) == 0 {
 		a.detailMessage("0 vulnerabilities ✓")
@@ -378,27 +381,24 @@ func (a *App) currentCommands() (update, fix string) {
 		return "", ""
 	}
 	if len(pr.Packages) > 0 {
-		update = command.ProjectUpdate(pr.Dir, pr.PM)
-		if names := markedNames(pr.Packages, marks); len(names) > 0 {
-			update = command.ProjectUpdateFiltered(pr.Dir, pr.PM, names)
-		}
+		update = command.ProjectUpdate(pr.Dir, pr.PM, markedPackages(pr.Packages, marks))
 	}
 	return update, audit.FixCommand(pr.Audit, pr.Dir, pr.PM)
 }
 
-// markedNames filters the scan's packages down to the marked ones,
-// preserving scan order and dropping marks that no longer exist.
-func markedNames(pkgs []scanner.Package, marks map[string]bool) []string {
+// markedPackages returns the marked subset of pkgs, or all of them when
+// nothing is marked (the full command). Scan order is preserved.
+func markedPackages(pkgs []scanner.Package, marks map[string]bool) []scanner.Package {
 	if len(marks) == 0 {
-		return nil
+		return pkgs
 	}
-	names := make([]string, 0, len(marks))
+	out := make([]scanner.Package, 0, len(marks))
 	for _, p := range pkgs {
 		if marks[p.Name] {
-			names = append(names, p.Name)
+			out = append(out, p)
 		}
 	}
-	return names
+	return out
 }
 
 // selectedProject resolves the selection to a project, falling back to the

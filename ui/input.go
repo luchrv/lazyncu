@@ -9,6 +9,7 @@ import (
 
 	"github.com/luchrv/lazyncu/config"
 	"github.com/luchrv/lazyncu/detect"
+	"github.com/luchrv/lazyncu/memo"
 	"github.com/luchrv/lazyncu/orchestrator"
 )
 
@@ -173,7 +174,7 @@ func (a *App) doRescan(src string) {
 	}
 	st.loading = true
 	st.marks = nil // fresh scan invalidates the selection
-	a.scanOne(src)
+	a.scanOne(src, true)
 	a.refreshAll()
 	a.setStatus(msgInfo, "rescanning %s…", displayName(src))
 }
@@ -209,7 +210,7 @@ func (a *App) doRescanEntry(src string, idx int) {
 	st.event.Projects = withPending(st.event.Projects, idx)
 	repo := detect.Repo{Dir: pr.Dir, Label: pr.Label}
 	go func() {
-		results := orchestrator.ScanProject(a.ctx, a.deps, repo)
+		results := orchestrator.ScanProject(memo.WithRefresh(a.ctx), a.deps, repo)
 		a.tv.QueueUpdateDraw(func() { a.spliceEntry(src, repo.Label, results) })
 	}()
 	a.refreshAll()
@@ -230,6 +231,7 @@ func (a *App) spliceEntry(src, label string, results []orchestrator.ProjectResul
 	prev := st.event.Projects
 	next := slices.Concat(prev[:idx], results, prev[idx+1:])
 	st.event.Projects = next
+	defer a.enqueuePendingAudits()
 	if len(next) != len(prev) {
 		st.marks = nil
 		a.reanchorSelection(src, prev, next)
@@ -271,7 +273,7 @@ func (a *App) addPath(raw string) {
 	added := updated.Paths[len(updated.Paths)-1].Path
 	a.order = append(a.order, added)
 	a.state[added] = &sourceState{loading: true}
-	a.scanOne(added)
+	a.scanOne(added, false)
 	a.refreshAll()
 	a.setStatus(msgOK, "added %s — scanning", added)
 }

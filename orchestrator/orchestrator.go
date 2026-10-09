@@ -1,7 +1,9 @@
-// Package orchestrator fans out version scans and vulnerability audits —
-// one goroutine per source, one goroutine per repository inside a folder
-// source, one audit goroutine per discovered project — and streams
+// Package orchestrator fans out version scans — one goroutine per source,
+// one goroutine per repository inside a folder source — and streams
 // immutable per-source snapshot events on a channel as work completes.
+// Vulnerability audits are deferred: every scanned project carries a
+// pending audit that the UI runs through AuditProject once the scans land
+// (queued in panel order, the selected project first).
 package orchestrator
 
 import (
@@ -52,7 +54,8 @@ type Deps struct {
 	Discoverer Discoverer
 }
 
-// ProjectResult pairs one project's scan result with its audit outcome.
+// ProjectResult pairs one project's scan result with its audit outcome,
+// which starts pending (see audit.Deferred) until AuditProject runs.
 type ProjectResult struct {
 	scanner.Project
 	Audit audit.Result
@@ -76,7 +79,8 @@ type Event struct {
 	// Packages holds global-source results (Source == SourceGlobal).
 	Packages    []scanner.Package
 	GlobalAudit audit.Result
-	// Projects holds path-source results, each with its audit.
+	// Projects holds path-source results, each with its (initially
+	// pending) audit.
 	Projects []ProjectResult
 	Err      error
 	// Folder marks a source scanned as a folder of repositories, whose
@@ -134,7 +138,16 @@ func RunGlobal(ctx context.Context, sc Scanner) Event {
 	}
 }
 
-// ScanProject scans and audits one repository as a unit. A scan failure
+// AuditProject runs the on-demand audit of one scanned project. A nil
+// Auditor marks it as not available instead of failing.
+func AuditProject(ctx context.Context, deps Deps, pr ProjectResult) audit.Result {
+	if deps.Auditor == nil {
+		return audit.Result{Status: audit.StatusNotAvailable}
+	}
+	return deps.Auditor(ctx, pr.Dir, pr.PM)
+}
+
+// ScanProject scans one repository as a unit. A scan failure
 // yields a single entry carrying Err; a repository that is a workspaces
 // monorepo yields one entry per workspace, labeled under the repository.
 func ScanProject(ctx context.Context, deps Deps, repo detect.Repo) []ProjectResult {
@@ -145,7 +158,7 @@ func ScanProject(ctx context.Context, deps Deps, repo detect.Repo) []ProjectResu
 	if len(projects) == 0 {
 		projects = []scanner.Project{{Dir: repo.Dir, Label: ".", PM: detect.PackageManagerFor(repo.Dir)}}
 	}
-	results := auditAll(ctx, deps.Auditor, projects)
+	results := deferAudits(projects)
 	for i := range results {
 		results[i].Label = joinLabel(repo.Label, results[i].Label)
 	}
@@ -162,7 +175,7 @@ func scanSource(ctx context.Context, deps Deps, path string, emit func(Event)) {
 	case isFolder:
 		scanFolder(ctx, deps, path, repos, emit)
 	default:
-		emit(scanAndAuditPath(ctx, deps, path))
+		emit(scanPath(ctx, deps, path))
 	}
 }
 
@@ -204,36 +217,22 @@ func scanFolder(ctx context.Context, deps Deps, path string, repos []detect.Repo
 	}
 }
 
-// scanAndAuditPath scans one single/monorepo path, then audits every
-// discovered project concurrently. Audit failures degrade to per-project
-// badges; only a scan failure marks the source as failed.
-func scanAndAuditPath(ctx context.Context, deps Deps, path string) Event {
+// scanPath scans one single/monorepo path; every discovered project
+// carries a deferred audit.
+func scanPath(ctx context.Context, deps Deps, path string) Event {
 	projects, err := deps.Scanner.ScanPath(ctx, path)
 	if err != nil {
 		return Event{Source: path, Err: err, Done: true}
 	}
-	return Event{Source: path, Projects: auditAll(ctx, deps.Auditor, projects), Done: true}
+	return Event{Source: path, Projects: deferAudits(projects), Done: true}
 }
 
-// auditAll audits projects concurrently and pairs each with its result. A
-// nil Auditor marks every audit as not available instead of failing.
-func auditAll(ctx context.Context, auditor Auditor, projects []scanner.Project) []ProjectResult {
-	if auditor == nil {
-		auditor = func(context.Context, string, detect.PackageManager) audit.Result {
-			return audit.Result{Status: audit.StatusNotAvailable}
-		}
-	}
+// deferAudits pairs each project with its audit placeholder.
+func deferAudits(projects []scanner.Project) []ProjectResult {
 	results := make([]ProjectResult, len(projects))
-	var wg sync.WaitGroup
 	for i, project := range projects {
-		wg.Go(func() {
-			results[i] = ProjectResult{
-				Project: project,
-				Audit:   auditor(ctx, project.Dir, project.PM),
-			}
-		})
+		results[i] = ProjectResult{Project: project, Audit: audit.Deferred(project.PM)}
 	}
-	wg.Wait()
 	return results
 }
 

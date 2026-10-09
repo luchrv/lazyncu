@@ -12,7 +12,9 @@ import (
 
 	"github.com/rivo/tview"
 
+	"github.com/luchrv/lazyncu/audit"
 	"github.com/luchrv/lazyncu/config"
+	"github.com/luchrv/lazyncu/memo"
 	"github.com/luchrv/lazyncu/orchestrator"
 )
 
@@ -31,6 +33,14 @@ type sourceState struct {
 // a folder entry being (re)scanned on its own.
 func (st *sourceState) scanning() bool {
 	return st.loading || pendingCount(st.event.Projects) > 0
+}
+
+// auditing reports whether one of the source's projects has an audit in
+// flight.
+func (st *sourceState) auditing() bool {
+	return slices.ContainsFunc(st.event.Projects, func(pr orchestrator.ProjectResult) bool {
+		return pr.Audit.Status == audit.StatusRunning
+	})
 }
 
 // pendingCount counts folder entries whose repository scan has not landed.
@@ -114,6 +124,8 @@ type App struct {
 	// rowPkgs maps rendered package-table rows (minus header) to package
 	// names; nil while the vulnerability view is shown.
 	rowPkgs []string
+	// audits schedules the deferred vulnerability audits.
+	audits auditQueue
 }
 
 // currentMarks returns the mark set of the selected entry (nil when none).
@@ -203,21 +215,27 @@ func (a *App) consume(events <-chan orchestrator.Event) {
 		for ev := range events {
 			a.tv.QueueUpdateDraw(func() { a.applyEvent(ev) })
 		}
+		a.tv.QueueUpdateDraw(a.enqueuePendingAudits)
 	}()
 }
 
 // scanOne (re)scans a single source — the global one or a registered path —
 // through the same choke point as the launch fan-out. A folder source
-// streams several snapshots before its final one.
-func (a *App) scanOne(source string) {
+// streams several snapshots before its final one. An explicit rescan
+// bypasses cached registry data; a newly added path reuses it.
+func (a *App) scanOne(source string, refresh bool) {
+	ctx := a.ctx
+	if refresh {
+		ctx = memo.WithRefresh(ctx)
+	}
 	if source == orchestrator.SourceGlobal {
 		go func() {
-			ev := orchestrator.RunGlobal(a.ctx, a.deps.Scanner)
+			ev := orchestrator.RunGlobal(ctx, a.deps.Scanner)
 			a.tv.QueueUpdateDraw(func() { a.applyEvent(ev) })
 		}()
 		return
 	}
-	a.consume(orchestrator.RunOne(a.ctx, a.deps, source))
+	a.consume(orchestrator.RunOne(ctx, a.deps, source))
 }
 
 // applyEvent records one source snapshot. Only ever called on the UI
@@ -238,6 +256,20 @@ func (a *App) applyEvent(ev orchestrator.Event) {
 	}
 	a.resolvePendingSelection(ev)
 	a.refreshAll()
+	a.surfaceWarnings(ev)
+	a.ensureAudit()
+}
+
+// surfaceWarnings reports .ncurc parity gaps (out-of-scope options or
+// executable configs) from the projects in one event, so the user knows a
+// project's results may differ from npm-check-updates.
+func (a *App) surfaceWarnings(ev orchestrator.Event) {
+	for _, pr := range ev.Projects {
+		if len(pr.Warnings) > 0 {
+			a.setStatus(msgWarn, "%s", pr.Warnings[0])
+			return
+		}
+	}
 }
 
 // reanchorSelection keeps the cursor on the entry it pointed at (matched by
@@ -259,10 +291,10 @@ func (a *App) refreshAll() {
 }
 
 // anyLoading reports whether any source — or any folder entry — is still
-// scanning; it drives the spinner.
+// scanning, or an on-demand audit is running; it drives the spinner.
 func (a *App) anyLoading() bool {
 	for _, st := range a.state {
-		if st.scanning() {
+		if st.scanning() || st.auditing() {
 			return true
 		}
 	}
@@ -464,7 +496,7 @@ func (a *App) doRescanAll(sources []string) {
 		}
 		st.loading = true
 		st.marks = nil
-		a.scanOne(src)
+		a.scanOne(src, true)
 	}
 	a.refreshAll()
 	a.setStatus(msgInfo, "rescanning %d sources…", len(sources))

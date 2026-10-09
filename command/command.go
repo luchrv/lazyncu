@@ -23,8 +23,28 @@ func GlobalUpdate(pkgs []scanner.Package) string {
 	return strings.Join(parts, " ")
 }
 
-// ProjectUpdate builds `cd <dir> && ncu -u && <install>` with the install
-// step matching the project's package manager.
-func ProjectUpdate(dir string, pm detect.PackageManager) string {
-	return "cd " + dir + " && ncu -u && " + installStep(pm)
+// ProjectUpdate builds `cd <dir> && <add> <pkg>@<ver> …` for the given
+// packages, where <add> matches the project's package manager. No packages
+// yields an empty string.
+func ProjectUpdate(dir string, pm detect.PackageManager, pkgs []scanner.Package) string {
+	if len(pkgs) == 0 {
+		return ""
+	}
+	specs := make([]string, 0, len(pkgs))
+	for _, p := range pkgs {
+		specs = append(specs, p.Name+"@"+p.New)
+	}
+	return "cd " + dir + " && " + addStep(pm) + " " + strings.Join(specs, " ")
+}
+
+// addStep is the package-manager add verb used to install resolved versions.
+func addStep(pm detect.PackageManager) string {
+	switch pm {
+	case detect.Pnpm:
+		return "pnpm add"
+	case detect.Yarn:
+		return "yarn add"
+	default:
+		return "npm install"
+	}
 }

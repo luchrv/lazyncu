@@ -7,8 +7,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/luchrv/lazyncu/detect"
+	"github.com/luchrv/lazyncu/registry"
 	"github.com/luchrv/lazyncu/semver"
 )
 
@@ -19,24 +21,55 @@ type fakeRunner struct {
 }
 
 type fakeResponse struct {
-	stdout   []byte
-	err      error
-	blockCtx bool // simulate a hang: return only when ctx is done
+	stdout []byte
+	err    error
 }
 
-func (f *fakeRunner) Run(ctx context.Context, dir, name string, args ...string) ([]byte, error) {
+func (f *fakeRunner) Run(_ context.Context, _ string, name string, args ...string) ([]byte, error) {
 	key := strings.Join(append([]string{name}, args...), " ")
 	f.calls = append(f.calls, key)
-	resp, ok := f.responses[key]
-	if !ok {
-		return nil, errors.New("fakeRunner: unexpected command " + key)
+	if resp, ok := f.responses[key]; ok {
+		return resp.stdout, resp.err
 	}
-	if resp.blockCtx {
-		<-ctx.Done()
-		return nil, ctx.Err()
-	}
-	return resp.stdout, resp.err
+	return nil, errors.New("fakeRunner: unexpected command " + key)
 }
+
+// fakeRegistry replies with canned metadata or an error per package. Publish
+// times come from the metadata itself unless times overrides them.
+type fakeRegistry struct {
+	meta  map[string]registry.Metadata
+	errs  map[string]error
+	times map[string]map[string]string
+	// minReleaseAge is the raw npm setting answered for every dir.
+	minReleaseAge string
+}
+
+func (f *fakeRegistry) MinReleaseAge(context.Context, string) (string, error) {
+	return f.minReleaseAge, nil
+}
+
+func (f *fakeRegistry) PublishTimes(_ context.Context, _, pkg string) (map[string]string, error) {
+	if t, ok := f.times[pkg]; ok {
+		return t, nil
+	}
+	return map[string]string{}, nil
+}
+
+func (f *fakeRegistry) Fetch(_ context.Context, _, pkg string) (registry.Metadata, error) {
+	if err, ok := f.errs[pkg]; ok {
+		return registry.Metadata{}, err
+	}
+	if m, ok := f.meta[pkg]; ok {
+		return m, nil
+	}
+	return registry.Metadata{}, errors.New("fakeRegistry: no metadata for " + pkg)
+}
+
+func md(latest string, versions ...registry.Version) registry.Metadata {
+	return registry.Metadata{DistTags: map[string]string{"latest": latest}, Versions: versions}
+}
+
+func v(version string) registry.Version { return registry.Version{Version: version} }
 
 func writeFile(t *testing.T, path, content string) {
 	t.Helper()
@@ -48,160 +81,103 @@ func writeFile(t *testing.T, path, content string) {
 	}
 }
 
-// --- Preflight ---
-
-func TestPreflightMissingBinary(t *testing.T) {
-	// Arrange
-	r := &fakeRunner{responses: map[string]fakeResponse{
-		"ncu --version": {err: errors.New(`exec: "ncu": executable file not found in $PATH`)},
-	}}
-
-	// Act
-	err := New(r).Preflight(context.Background())
-
-	// Assert
-	if err == nil {
-		t.Fatal("Preflight() = nil, want error for missing ncu")
+func byName(pkgs []Package) map[string]Package {
+	out := make(map[string]Package, len(pkgs))
+	for _, p := range pkgs {
+		out[p.Name] = p
 	}
-	if !strings.Contains(err.Error(), "npm install -g npm-check-updates") {
-		t.Errorf("Preflight() error %q must include the install command", err)
-	}
-}
-
-func TestPreflightVersionTooOld(t *testing.T) {
-	// Arrange
-	r := &fakeRunner{responses: map[string]fakeResponse{
-		"ncu --version": {stdout: []byte("17.1.3\n")},
-	}}
-
-	// Act
-	err := New(r).Preflight(context.Background())
-
-	// Assert
-	if err == nil {
-		t.Fatal("Preflight() = nil, want error for ncu < 18")
-	}
-	if !strings.Contains(err.Error(), "18") {
-		t.Errorf("Preflight() error %q must mention the minimum version", err)
-	}
-}
-
-func TestPreflightOK(t *testing.T) {
-	// Arrange
-	r := &fakeRunner{responses: map[string]fakeResponse{
-		"ncu --version": {stdout: []byte("18.0.1\n")},
-	}}
-
-	// Act & Assert
-	if err := New(r).Preflight(context.Background()); err != nil {
-		t.Fatalf("Preflight() = %v, want nil", err)
-	}
+	return out
 }
 
 // --- Global scan ---
 
-func TestScanGlobalMergesInstalledVersions(t *testing.T) {
-	// Arrange
+func TestScanGlobalUsesNdAndRegistry(t *testing.T) {
 	r := &fakeRunner{responses: map[string]fakeResponse{
-		"ncu -g --jsonUpgraded": {stdout: []byte(`{"typescript":"5.6.2","npm-check-updates":"18.1.0"}`)},
 		"npm ls -g --depth=0 --json": {stdout: []byte(
 			`{"dependencies":{"typescript":{"version":"5.5.0"},"npm-check-updates":{"version":"18.0.1"}}}`)},
 	}}
+	reg := &fakeRegistry{meta: map[string]registry.Metadata{
+		"typescript":        md("5.6.2", v("5.5.0"), v("5.6.2")),
+		"npm-check-updates": md("18.1.0", v("18.0.1"), v("18.1.0")),
+	}}
 
-	// Act
-	pkgs, err := New(r).ScanGlobal(context.Background())
-
-	// Assert
+	pkgs, err := New(r, reg).ScanGlobal(context.Background())
 	if err != nil {
 		t.Fatalf("ScanGlobal() error = %v", err)
 	}
 	if len(pkgs) != 2 {
-		t.Fatalf("ScanGlobal() returned %d packages, want 2", len(pkgs))
+		t.Fatalf("returned %d packages, want 2", len(pkgs))
 	}
-	byName := map[string]Package{}
-	for _, p := range pkgs {
-		byName[p.Name] = p
-	}
-	ts := byName["typescript"]
+	ts := byName(pkgs)["typescript"]
 	if ts.Current != "5.5.0" || ts.New != "5.6.2" || ts.Severity != semver.Minor {
 		t.Errorf("typescript = %+v, want current 5.5.0, new 5.6.2, minor", ts)
 	}
 }
 
 func TestScanGlobalNpmLsFailureDegrades(t *testing.T) {
-	// Arrange
 	r := &fakeRunner{responses: map[string]fakeResponse{
-		"ncu -g --jsonUpgraded":      {stdout: []byte(`{"typescript":"5.6.2"}`)},
 		"npm ls -g --depth=0 --json": {err: errors.New("npm ls exploded")},
 	}}
-
-	// Act
-	pkgs, err := New(r).ScanGlobal(context.Background())
-
-	// Assert
+	pkgs, err := New(r, &fakeRegistry{}).ScanGlobal(context.Background())
 	if err != nil {
 		t.Fatalf("ScanGlobal() error = %v, want degraded success", err)
 	}
-	if len(pkgs) != 1 || pkgs[0].Current != "" || pkgs[0].Severity != semver.Other {
-		t.Errorf("pkgs = %+v, want typescript with unknown current and other severity", pkgs)
+	if len(pkgs) != 0 {
+		t.Errorf("pkgs = %+v, want none when npm ls fails", pkgs)
 	}
 }
 
 func TestScanGlobalNpmLsExitCodeWithValidJSONIsUsed(t *testing.T) {
-	// Arrange: npm ls -g exits non-zero (e.g. extraneous packages) but emits JSON
 	r := &fakeRunner{responses: map[string]fakeResponse{
-		"ncu -g --jsonUpgraded": {stdout: []byte(`{"typescript":"5.6.2"}`)},
 		"npm ls -g --depth=0 --json": {
 			stdout: []byte(`{"dependencies":{"typescript":{"version":"5.5.0"}}}`),
 			err:    errors.New("exit status 1"),
 		},
 	}}
+	reg := &fakeRegistry{meta: map[string]registry.Metadata{"typescript": md("5.6.2", v("5.5.0"), v("5.6.2"))}}
 
-	// Act
-	pkgs, err := New(r).ScanGlobal(context.Background())
-
-	// Assert
+	pkgs, err := New(r, reg).ScanGlobal(context.Background())
 	if err != nil {
 		t.Fatalf("ScanGlobal() error = %v", err)
 	}
-	if pkgs[0].Current != "5.5.0" {
-		t.Errorf("Current = %q, want 5.5.0 parsed despite non-zero exit", pkgs[0].Current)
+	if len(pkgs) != 1 || pkgs[0].Current != "5.5.0" {
+		t.Errorf("pkgs = %+v, want typescript parsed despite non-zero exit", pkgs)
 	}
 }
 
-func TestScanGlobalNcuFails(t *testing.T) {
-	// Arrange
+func TestScanGlobalRegistryFailureIsIsolated(t *testing.T) {
 	r := &fakeRunner{responses: map[string]fakeResponse{
-		"ncu -g --jsonUpgraded": {err: errors.New("exit status 2")},
+		"npm ls -g --depth=0 --json": {stdout: []byte(
+			`{"dependencies":{"good":{"version":"1.0.0"},"bad":{"version":"1.0.0"}}}`)},
 	}}
+	reg := &fakeRegistry{
+		meta: map[string]registry.Metadata{"good": md("1.1.0", v("1.0.0"), v("1.1.0"))},
+		errs: map[string]error{"bad": errors.New("boom")},
+	}
 
-	// Act
-	_, err := New(r).ScanGlobal(context.Background())
-
-	// Assert
-	if err == nil {
-		t.Fatal("ScanGlobal() = nil, want error when ncu fails")
+	pkgs, err := New(r, reg).ScanGlobal(context.Background())
+	if err != nil {
+		t.Fatalf("ScanGlobal() error = %v", err)
+	}
+	if len(pkgs) != 1 || pkgs[0].Name != "good" {
+		t.Errorf("pkgs = %+v, want only the healthy dependency", pkgs)
 	}
 }
 
 // --- Single project scan ---
 
 func TestScanPathSingleProject(t *testing.T) {
-	// Arrange
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "package.json"),
 		`{"name":"app","dependencies":{"express":"^4.18.0"},"devDependencies":{"vitest":"^1.0.0"},"engines":{"node":">=18"}}`)
 	writeFile(t, filepath.Join(dir, ".nvmrc"), "18.19.0\n")
 	writeFile(t, filepath.Join(dir, "pnpm-lock.yaml"), "")
-	pkgFile := filepath.Join(dir, "package.json")
-	r := &fakeRunner{responses: map[string]fakeResponse{
-		"ncu --jsonUpgraded --enginesNode --packageFile " + pkgFile: {stdout: []byte(`{"express":"^5.1.0","vitest":"^1.2.0"}`)},
+	reg := &fakeRegistry{meta: map[string]registry.Metadata{
+		"express": md("5.1.0", v("4.18.0"), v("5.1.0")),
+		"vitest":  md("1.2.0", v("1.0.0"), v("1.2.0")),
 	}}
 
-	// Act
-	projects, err := New(r).ScanPath(context.Background(), dir)
-
-	// Assert
+	projects, err := New(&fakeRunner{}, reg).ScanPath(context.Background(), dir)
 	if err != nil {
 		t.Fatalf("ScanPath() error = %v", err)
 	}
@@ -212,15 +188,8 @@ func TestScanPathSingleProject(t *testing.T) {
 	if p.Label != "." || p.Dir != dir || p.PM != detect.Pnpm {
 		t.Errorf("project = {Label:%q Dir:%q PM:%q}, want {. %s pnpm}", p.Label, p.Dir, p.PM, dir)
 	}
-	if len(p.Packages) != 2 {
-		t.Fatalf("got %d packages, want 2", len(p.Packages))
-	}
-	byName := map[string]Package{}
-	for _, pkg := range p.Packages {
-		byName[pkg.Name] = pkg
-	}
-	if e := byName["express"]; e.Current != "^4.18.0" || e.New != "^5.1.0" || e.Severity != semver.Major {
-		t.Errorf("express = %+v, want current ^4.18.0, new ^5.1.0, major", e)
+	if e := byName(p.Packages)["express"]; e.Current != "^4.18.0" || e.New != "5.1.0" || e.Severity != semver.Major {
+		t.Errorf("express = %+v, want current ^4.18.0, new 5.1.0, major", e)
 	}
 	if p.Counters != (semver.Counters{Major: 1, Minor: 1}) {
 		t.Errorf("Counters = %+v, want {Major:1 Minor:1}", p.Counters)
@@ -231,18 +200,10 @@ func TestScanPathSingleProject(t *testing.T) {
 }
 
 func TestScanPathSingleUpToDate(t *testing.T) {
-	// Arrange
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "package.json"), `{"name":"app","dependencies":{}}`)
-	pkgFile := filepath.Join(dir, "package.json")
-	r := &fakeRunner{responses: map[string]fakeResponse{
-		"ncu --jsonUpgraded --enginesNode --packageFile " + pkgFile: {stdout: []byte(`{}`)},
-	}}
 
-	// Act
-	projects, err := New(r).ScanPath(context.Background(), dir)
-
-	// Assert
+	projects, err := New(&fakeRunner{}, &fakeRegistry{}).ScanPath(context.Background(), dir)
 	if err != nil {
 		t.Fatalf("ScanPath() error = %v", err)
 	}
@@ -251,52 +212,114 @@ func TestScanPathSingleUpToDate(t *testing.T) {
 	}
 }
 
-// --- Deep scan ---
-
-func TestScanPathFolderIsRefused(t *testing.T) {
-	// Arrange: a folder (no root package.json) with two repositories
-	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "api", "package.json"), `{"dependencies":{"express":"^4.18.0"}}`)
-	writeFile(t, filepath.Join(root, "web", "package.json"), `{"dependencies":{"react":"^18.2.0"}}`)
-	r := &fakeRunner{responses: map[string]fakeResponse{}}
-
-	// Act
-	projects, err := New(r).ScanPath(context.Background(), root)
-
-	// Assert: no process spawned, explicit error
-	if !errors.Is(err, ErrFolderNotScannable) {
-		t.Fatalf("ScanPath() error = %v, want ErrFolderNotScannable", err)
+func TestScanPathSingleEnginesFallback(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "package.json"),
+		`{"name":"app","dependencies":{"lodash":"^1.0.0"},"engines":{"node":">=16 <17"}}`)
+	reg := &fakeRegistry{meta: map[string]registry.Metadata{
+		"lodash": md("3.0.0", v("1.0.0"), v("2.0.0"), registry.Version{Version: "3.0.0", EnginesNode: ">=20"}),
+	}}
+	// 2.0.0 has no engines (allowed); 3.0.0 needs node >=20 (excluded)
+	reg.meta["lodash"] = registry.Metadata{
+		DistTags: map[string]string{"latest": "3.0.0"},
+		Versions: []registry.Version{
+			{Version: "1.0.0"},
+			{Version: "2.0.0", EnginesNode: ">=16"},
+			{Version: "3.0.0", EnginesNode: ">=20"},
+		},
 	}
-	if projects != nil || len(r.calls) != 0 {
-		t.Errorf("folder scan ran commands %v with projects %v; want none", r.calls, projects)
+
+	projects, err := New(&fakeRunner{}, reg).ScanPath(context.Background(), dir)
+	if err != nil {
+		t.Fatalf("ScanPath() error = %v", err)
+	}
+	pkgs := byName(projects[0].Packages)
+	if pkgs["lodash"].New != "2.0.0" {
+		t.Errorf("lodash new = %q, want 2.0.0 (newest satisfying engines)", pkgs["lodash"].New)
 	}
 }
 
-func TestScanPathDeepMonorepoWithRelativeKeys(t *testing.T) {
-	// Arrange: a workspaces monorepo with two packages; ncu emits relative keys
+func TestScanPathSingleRegistryFailureIsolated(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "package.json"),
+		`{"name":"app","dependencies":{"a":"^1.0.0","b":"^1.0.0"}}`)
+	reg := &fakeRegistry{
+		meta: map[string]registry.Metadata{"b": md("1.1.0", v("1.0.0"), v("1.1.0"))},
+		errs: map[string]error{"a": errors.New("registry down")},
+	}
+
+	projects, err := New(&fakeRunner{}, reg).ScanPath(context.Background(), dir)
+	if err != nil {
+		t.Fatalf("ScanPath() error = %v, want success despite one failure", err)
+	}
+	if len(projects[0].Packages) != 1 || projects[0].Packages[0].Name != "b" {
+		t.Errorf("packages = %+v, want only b", projects[0].Packages)
+	}
+}
+
+func TestScanPathSingleRejectViaNcurc(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "package.json"),
+		`{"name":"app","dependencies":{"@types/node":"^1.0.0","express":"^4.0.0"}}`)
+	writeFile(t, filepath.Join(dir, ".ncurc.json"), `{"reject":["@types/*"]}`)
+	reg := &fakeRegistry{meta: map[string]registry.Metadata{
+		"@types/node": md("1.1.0", v("1.0.0"), v("1.1.0")),
+		"express":     md("5.0.0", v("4.0.0"), v("5.0.0")),
+	}}
+
+	projects, err := New(&fakeRunner{}, reg).ScanPath(context.Background(), dir)
+	if err != nil {
+		t.Fatalf("ScanPath() error = %v", err)
+	}
+	if pkgs := byName(projects[0].Packages); pkgs["@types/node"].Name != "" || pkgs["express"].Name == "" {
+		t.Errorf("packages = %+v, want @types/node rejected and express present", projects[0].Packages)
+	}
+}
+
+func TestScanPathSurfacesNcurcWarnings(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "package.json"), `{"name":"app"}`)
+	writeFile(t, filepath.Join(dir, ".ncurc"), "peer: true\n")
+
+	projects, err := New(&fakeRunner{}, &fakeRegistry{}).ScanPath(context.Background(), dir)
+	if err != nil {
+		t.Fatalf("ScanPath() error = %v", err)
+	}
+	if len(projects[0].Warnings) == 0 {
+		t.Error("Project.Warnings empty, want the out-of-scope .ncurc warning")
+	}
+}
+
+func TestScanPathFolderIsRefused(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "api", "package.json"), `{"dependencies":{"express":"^4.18.0"}}`)
+
+	projects, err := New(&fakeRunner{}, &fakeRegistry{}).ScanPath(context.Background(), root)
+	if !errors.Is(err, ErrFolderNotScannable) {
+		t.Fatalf("ScanPath() error = %v, want ErrFolderNotScannable", err)
+	}
+	if projects != nil {
+		t.Errorf("projects = %v, want nil", projects)
+	}
+}
+
+// --- Deep scan ---
+
+func TestScanPathDeepDiscoversEveryManifest(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "package.json"), `{"name":"mono","workspaces":["packages/*"]}`)
 	writeFile(t, filepath.Join(root, "packages", "api", "package.json"), `{"dependencies":{"express":"^4.18.0"}}`)
 	writeFile(t, filepath.Join(root, "packages", "api", "package-lock.json"), "{}")
 	writeFile(t, filepath.Join(root, "packages", "web", "package.json"), `{"dependencies":{"react":"^18.2.0"}}`)
 	writeFile(t, filepath.Join(root, "packages", "web", "yarn.lock"), "")
-	deepJSON := `{
-		"packages/api/package.json": {"express":"^5.1.0"},
-		"packages/web/package.json": {"react":"^18.3.1"}
-	}`
-	r := &fakeRunner{responses: map[string]fakeResponse{
-		"ncu --deep --jsonUpgraded --enginesNode": {stdout: []byte(deepJSON)},
+	reg := &fakeRegistry{meta: map[string]registry.Metadata{
+		"express": md("5.1.0", v("4.18.0"), v("5.1.0")),
+		"react":   md("18.3.1", v("18.2.0"), v("18.3.1")),
 	}}
 
-	// Act
-	projects, err := New(r).ScanPath(context.Background(), root)
-
-	// Assert
+	projects, err := New(&fakeRunner{}, reg).ScanPath(context.Background(), root)
 	if err != nil {
 		t.Fatalf("ScanPath() error = %v", err)
-	}
-	if len(projects) != 2 {
-		t.Fatalf("got %d projects, want 2", len(projects))
 	}
 	byLabel := map[string]Project{}
 	for _, p := range projects {
@@ -309,102 +332,67 @@ func TestScanPathDeepMonorepoWithRelativeKeys(t *testing.T) {
 	if api.PM != detect.Npm || api.Dir != filepath.Join(root, "packages", "api") {
 		t.Errorf("api = {PM:%q Dir:%q}, want npm, %s", api.PM, api.Dir, filepath.Join(root, "packages", "api"))
 	}
-	if api.Packages[0].Current != "^4.18.0" || api.Packages[0].Severity != semver.Major {
-		t.Errorf("api express = %+v, want current ^4.18.0 major", api.Packages[0])
-	}
-	if api.Nvmrc != "" || api.EnginesNode != "" {
-		t.Errorf("api node context = {Nvmrc:%q EnginesNode:%q}, want empty (no declarations)", api.Nvmrc, api.EnginesNode)
+	if e := byName(api.Packages)["express"]; e.Current != "^4.18.0" || e.Severity != semver.Major {
+		t.Errorf("api express = %+v, want current ^4.18.0 major", e)
 	}
 	if web := byLabel[filepath.Join("packages", "web")]; web.PM != detect.Yarn {
 		t.Errorf("web.PM = %q, want yarn", web.PM)
 	}
+	if _, ok := byLabel["."]; !ok {
+		t.Errorf("root manifest not discovered; labels: %v", labels(projects))
+	}
 }
 
-func TestScanPathDeepMonorepoWithAbsoluteKeys(t *testing.T) {
-	// Arrange: monorepo root; ncu may emit absolute package-file paths
-	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "package.json"), `{"name":"root","workspaces":["packages/*"]}`)
-	writeFile(t, filepath.Join(root, "pnpm-lock.yaml"), "")
-	writeFile(t, filepath.Join(root, "packages", "core", "package.json"), `{"dependencies":{"lodash":"^4.17.20"}}`)
-	deepJSON := `{"` + filepath.Join(root, "packages", "core", "package.json") + `": {"lodash":"^4.17.21"}}`
-	r := &fakeRunner{responses: map[string]fakeResponse{
-		"ncu --deep --jsonUpgraded --enginesNode": {stdout: []byte(deepJSON)},
+func TestScanPathSingleCooldownExcludesFreshVersion(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "package.json"), `{"name":"app","dependencies":{"lodash":"^1.0.0"}}`)
+	now := time.Now()
+	reg := &fakeRegistry{meta: map[string]registry.Metadata{
+		"lodash": {
+			DistTags: map[string]string{"latest": "2.0.0"},
+			Versions: []registry.Version{
+				{Version: "1.0.0"},
+				{Version: "2.0.0", Time: now.Add(-24 * time.Hour).Format(time.RFC3339)},
+				{Version: "1.5.0", Time: now.Add(-30 * 24 * time.Hour).Format(time.RFC3339)},
+			},
+		},
 	}}
+	reg.minReleaseAge = "7"
 
-	// Act
-	projects, err := New(r).ScanPath(context.Background(), root)
-
-	// Assert
+	projects, err := New(&fakeRunner{}, reg).ScanPath(context.Background(), dir)
 	if err != nil {
 		t.Fatalf("ScanPath() error = %v", err)
 	}
-	if len(projects) != 1 {
-		t.Fatalf("got %d projects, want 1", len(projects))
-	}
-	p := projects[0]
-	if p.Label != filepath.Join("packages", "core") {
-		t.Errorf("Label = %q, want packages/core", p.Label)
-	}
-	if p.Packages[0].Severity != semver.Patch {
-		t.Errorf("lodash severity = %v, want patch", p.Packages[0].Severity)
+	if got := byName(projects[0].Packages)["lodash"].New; got != "1.5.0" {
+		t.Errorf("lodash new = %q, want 1.5.0 (2.0.0 within cooldown)", got)
 	}
 }
 
-// --- Failure isolation ---
-
-func TestScanPathNcuNonZeroExit(t *testing.T) {
-	// Arrange
+func TestManifestVersionsIncludesPackageManager(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "package.json"), `{"name":"app"}`)
 	pkgFile := filepath.Join(dir, "package.json")
-	r := &fakeRunner{responses: map[string]fakeResponse{
-		"ncu --jsonUpgraded --enginesNode --packageFile " + pkgFile: {err: errors.New("exit status 2")},
-	}}
+	writeFile(t, pkgFile, `{"name":"app","packageManager":"pnpm@9.0.0","dependencies":{"x":"1.0.0"}}`)
 
-	// Act
-	_, err := New(r).ScanPath(context.Background(), dir)
-
-	// Assert
-	if err == nil {
-		t.Fatal("ScanPath() = nil, want error on ncu failure")
+	got := manifestVersions(pkgFile)
+	if got["pnpm"] != "9.0.0" {
+		t.Errorf("manifestVersions()[pnpm] = %q, want 9.0.0", got["pnpm"])
+	}
+	if got["x"] != "1.0.0" {
+		t.Errorf("manifestVersions()[x] = %q, want 1.0.0", got["x"])
 	}
 }
 
-func TestScanPathMalformedJSONNoPanic(t *testing.T) {
-	// Arrange
-	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "package.json"), `{"name":"app"}`)
-	pkgFile := filepath.Join(dir, "package.json")
-	r := &fakeRunner{responses: map[string]fakeResponse{
-		"ncu --jsonUpgraded --enginesNode --packageFile " + pkgFile: {stdout: []byte(`{{{not json`)},
-	}}
-
-	// Act
-	_, err := New(r).ScanPath(context.Background(), dir)
-
-	// Assert
-	if err == nil {
-		t.Fatal("ScanPath() = nil, want parse error, and must not panic")
+func TestParseCooldown(t *testing.T) {
+	tests := []struct {
+		in   string
+		want int
+	}{
+		{"", 0}, {"undefined", 0}, {"7", 7}, {"7d", 7}, {"48h", 2}, {"60m", 0}, {"bogus", 0}, {"-3", 0},
 	}
-}
-
-func TestScanPathTimeout(t *testing.T) {
-	// Arrange
-	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "package.json"), `{"name":"app"}`)
-	pkgFile := filepath.Join(dir, "package.json")
-	r := &fakeRunner{responses: map[string]fakeResponse{
-		"ncu --jsonUpgraded --enginesNode --packageFile " + pkgFile: {blockCtx: true},
-	}}
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-
-	// Act
-	_, err := New(r).ScanPath(ctx, dir)
-
-	// Assert
-	if err == nil {
-		t.Fatal("ScanPath() = nil, want context error on timeout")
+	for _, tt := range tests {
+		if got := parseCooldown(tt.in); got != tt.want {
+			t.Errorf("parseCooldown(%q) = %d, want %d", tt.in, got, tt.want)
+		}
 	}
 }
 

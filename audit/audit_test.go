@@ -80,7 +80,7 @@ func vulnByName(t *testing.T, res Result, name string) Vulnerability {
 func TestRunNpmParsesCountersAndDetail(t *testing.T) {
 	// Arrange
 	r := &fakeRunner{responses: map[string]fakeResponse{
-		"npm audit --json": {stdout: []byte(auditWithVulns), err: errors.New("exit status 1")},
+		"npm audit --json --package-lock-only": {stdout: []byte(auditWithVulns), err: errors.New("exit status 1")},
 	}}
 
 	// Act
@@ -129,7 +129,7 @@ func TestRunPnpmUsesPnpmAudit(t *testing.T) {
 func TestRunZeroVulnsIsOKNotUnavailable(t *testing.T) {
 	// Arrange
 	r := &fakeRunner{responses: map[string]fakeResponse{
-		"npm audit --json": {stdout: []byte(auditClean)},
+		"npm audit --json --package-lock-only": {stdout: []byte(auditClean)},
 	}}
 
 	// Act
@@ -167,7 +167,7 @@ func TestGlobalResultIsNotAvailable(t *testing.T) {
 func TestRunExecFailureIsFailed(t *testing.T) {
 	// Arrange
 	r := &fakeRunner{responses: map[string]fakeResponse{
-		"npm audit --json": {err: errors.New("spawn failed")},
+		"npm audit --json --package-lock-only": {err: errors.New("spawn failed")},
 	}}
 
 	// Act
@@ -185,7 +185,7 @@ func TestRunExecFailureIsFailed(t *testing.T) {
 func TestRunMalformedJSONIsFailed(t *testing.T) {
 	// Arrange
 	r := &fakeRunner{responses: map[string]fakeResponse{
-		"npm audit --json": {stdout: []byte("not json"), err: errors.New("exit status 1")},
+		"npm audit --json --package-lock-only": {stdout: []byte("not json"), err: errors.New("exit status 1")},
 	}}
 
 	// Act
@@ -202,7 +202,7 @@ func TestRunMalformedJSONIsFailed(t *testing.T) {
 func TestChainTransitive(t *testing.T) {
 	// Arrange
 	r := &fakeRunner{responses: map[string]fakeResponse{
-		"npm audit --json": {stdout: []byte(auditWithVulns)},
+		"npm audit --json --package-lock-only": {stdout: []byte(auditWithVulns)},
 	}}
 
 	// Act
@@ -221,7 +221,7 @@ func TestChainTransitive(t *testing.T) {
 func TestChainDirectDependency(t *testing.T) {
 	// Arrange
 	r := &fakeRunner{responses: map[string]fakeResponse{
-		"npm audit --json": {stdout: []byte(auditWithVulns)},
+		"npm audit --json --package-lock-only": {stdout: []byte(auditWithVulns)},
 	}}
 
 	// Act
@@ -248,7 +248,7 @@ func TestChainCycleSafety(t *testing.T) {
 	  "metadata": {"vulnerabilities":{"info":0,"low":0,"moderate":0,"high":2,"critical":0,"total":2}}
 	}`
 	r := &fakeRunner{responses: map[string]fakeResponse{
-		"npm audit --json": {stdout: []byte(cyclic)},
+		"npm audit --json --package-lock-only": {stdout: []byte(cyclic)},
 	}}
 
 	// Act: must terminate
@@ -279,7 +279,7 @@ func TestChainTruncationPastMaxHops(t *testing.T) {
 	  "metadata": {"vulnerabilities":{"info":0,"low":6,"moderate":0,"high":0,"critical":0,"total":6}}
 	}`
 	r := &fakeRunner{responses: map[string]fakeResponse{
-		"npm audit --json": {stdout: []byte(deep)},
+		"npm audit --json --package-lock-only": {stdout: []byte(deep)},
 	}}
 
 	// Act

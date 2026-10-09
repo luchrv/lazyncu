@@ -1,6 +1,9 @@
 // Package audit runs npm/pnpm vulnerability audits (through the injected
 // scanner.Runner) and parses them into immutable results, including the
 // dependency chain that drags each vulnerable package into the project.
+// Audits are expensive (one to several seconds each), so they run as a phase
+// after the version scans — the selected project first — and their results
+// are cached by lockfile fingerprint (see Cached).
 package audit
 
 import (
@@ -37,6 +40,12 @@ const (
 	StatusOK           Status = "ok"
 	StatusNotAvailable Status = "not-available"
 	StatusFailed       Status = "failed"
+	// StatusPending marks an auditable project whose audit has not run yet:
+	// audits are queued once the version scans land, the selected project
+	// first.
+	StatusPending Status = "pending"
+	// StatusRunning marks an audit in flight.
+	StatusRunning Status = "running"
 )
 
 // Vulnerability is one vulnerable package in the dependency tree.
@@ -80,23 +89,37 @@ func GlobalResult() Result {
 	return Result{Status: StatusNotAvailable}
 }
 
+// Deferred is the audit placeholder a freshly scanned project carries: not
+// available for package managers Run does not audit, pending otherwise.
+func Deferred(pm detect.PackageManager) Result {
+	if pm != detect.Npm && pm != detect.Pnpm {
+		return Result{Status: StatusNotAvailable}
+	}
+	return Result{Status: StatusPending}
+}
+
 // Run audits one project directory with the command matching its package
 // manager. Yarn projects are not audited in v1 (different report format).
-// A non-zero exit with parseable JSON is a successful audit (npm audit exits
-// 1 whenever vulnerabilities exist); only unparseable output or an exec
-// failure yields StatusFailed.
+// npm audits the lockfile only (`--package-lock-only`): the report is the
+// same as for the installed tree, node_modules is never read, and projects
+// that are not installed can still be audited. A non-zero exit with
+// parseable JSON is a successful audit (npm audit exits 1 whenever
+// vulnerabilities exist); only unparseable output or an exec failure yields
+// StatusFailed.
 func Run(ctx context.Context, runner scanner.Runner, dir string, pm detect.PackageManager) Result {
 	var name string
+	args := []string{"audit", "--json"}
 	switch pm {
 	case detect.Npm:
 		name = "npm"
+		args = append(args, "--package-lock-only")
 	case detect.Pnpm:
 		name = "pnpm"
 	default:
 		return Result{Status: StatusNotAvailable}
 	}
 
-	out, err := runner.Run(ctx, dir, name, "audit", "--json")
+	out, err := runner.Run(ctx, dir, name, args...)
 	if len(out) == 0 {
 		reason := "audit produced no output"
 		if err != nil {
