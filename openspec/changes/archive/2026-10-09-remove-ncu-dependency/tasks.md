@@ -39,7 +39,7 @@
 ## 7. Integration verification
 
 - [x] 7.1 Run `make check` (gofmt, vet, race tests, coverage) and verify it passes.
-- [ ] 7.2 Mandatory before release: scan a project whose dependency resolves from a scoped private registry and verify the HTTP client resolves it with the credentials from npmrc (no `npm view` fallback in the log) (manual).
+- [x] 7.2 Mandatory before release: scan a project whose dependency resolves from a scoped private registry and verify the HTTP client resolves it with the credentials from npmrc (no `npm view` fallback in the log) (manual).
 - [x] 7.3 End-to-end: with no `ncu` installed, scan a fixture single project, monorepo, folder, and global source; verify entries and suggested commands match the specced behavior.
 
 ## 8. Scan performance
