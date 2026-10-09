@@ -20,9 +20,9 @@ assets/demo/*.gif            website/public/demos/*.{mp4,webm}
 ## Prerequisites
 
 - `brew install vhs` (renders tapes headlessly; bundles its own font)
-- `ncu` and `npm` on PATH (same requirements as lazyncu itself)
-- **Network access** — recordings run real `ncu` and `npm audit` against the
-  npm registry.
+- `npm` on PATH (same requirement as lazyncu itself)
+- **Network access** — recordings run real registry queries and `npm audit`
+  against the npm registry.
 
 ## Regenerating all demos
 

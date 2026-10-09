@@ -70,10 +70,10 @@ homebrew_casks:
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     homepage: https://github.com/luchrv/lazyncu
-    description: Read-only terminal dashboard for npm-check-updates
-    # lazyncu shells out to ncu at runtime; the homebrew-core formula provides it.
+    description: Read-only terminal dashboard for outdated npm dependencies
+    # lazyncu shells out to npm at runtime; the node formula provides it.
     dependencies:
-      - formula: npm-check-updates
+      - formula: node
     # Unsigned binary: strip the quarantine flag so Gatekeeper lets it run.
     hooks:
       post:

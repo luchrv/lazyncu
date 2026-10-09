@@ -68,6 +68,12 @@ func TestAuditSummaryNonOKStates(t *testing.T) {
 	if got := auditSummary(audit.Result{Status: audit.StatusOK}); got != "[green]0 vulns[-]" {
 		t.Errorf("clean summary = %q", got)
 	}
+	if got := auditSummary(audit.Result{Status: audit.StatusPending}); got != "[gray]audit pending[-]" {
+		t.Errorf("pending summary = %q", got)
+	}
+	if got := auditSummary(audit.Result{Status: audit.StatusRunning}); got != "[gray]auditing…[-]" {
+		t.Errorf("running summary = %q", got)
+	}
 }
 
 func projWith(maj, min, pat int, res audit.Result) orchestrator.ProjectResult {
@@ -122,6 +128,8 @@ func TestAggregateAuditText(t *testing.T) {
 		want string
 	}{
 		{"all n/a", sourceAggregate{}, "[gray]audit n/a[-]"},
+		{"pending only", sourceAggregate{pending: 2}, "[gray]audit pending[-]"},
+		{"pending beside audited", sourceAggregate{audited: 1, pending: 1}, "[green]0 vulns[-]"},
 		{"clean", sourceAggregate{audited: 2}, "[green]0 vulns[-]"},
 		{"failed only", sourceAggregate{failed: 1}, "[red]audit ✗[-]"},
 		{"sums", sourceAggregate{audited: 2, vulns: audit.Counters{High: 3, Low: 1}},

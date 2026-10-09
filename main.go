@@ -1,4 +1,5 @@
-// Command lazyncu is a read-only terminal dashboard for npm-check-updates.
+// Command lazyncu is a read-only terminal dashboard for outdated npm
+// dependencies.
 package main
 
 import (
@@ -6,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -13,11 +15,20 @@ import (
 	"github.com/luchrv/lazyncu/config"
 	"github.com/luchrv/lazyncu/detect"
 	"github.com/luchrv/lazyncu/launch"
+	"github.com/luchrv/lazyncu/memo"
 	"github.com/luchrv/lazyncu/orchestrator"
+	"github.com/luchrv/lazyncu/registry"
 	"github.com/luchrv/lazyncu/scanner"
 	"github.com/luchrv/lazyncu/ui"
 	"github.com/luchrv/lazyncu/version"
 )
+
+// registryCacheFile holds registry metadata across launches, next to the
+// config file.
+const registryCacheFile = "registry-cache.json"
+
+// auditCacheFile holds audit results keyed by lockfile fingerprint.
+const auditCacheFile = "audit-cache.json"
 
 func main() {
 	// Version must print even with a broken config or missing ncu, so it
@@ -76,21 +87,31 @@ func run(target string) error {
 		}
 	}
 
-	// One bound for every external command (ncu, npm ls, npm audit) across
-	// all sources; the per-command timeout starts only once a slot is held.
+	// One bound for every external command (npm config, npm view, npm ls,
+	// npm audit) across all sources; the per-command timeout starts only once
+	// a slot is held. Registry HTTP requests have their own bound.
 	runner := scanner.NewLimitedRunner(
 		scanner.ExecRunner{Timeout: time.Duration(cfg.TimeoutMS) * time.Millisecond},
 		cfg.MaxParallel)
-	sc := scanner.New(runner)
+	timeout := time.Duration(cfg.TimeoutMS) * time.Millisecond
+	fetcher := registry.NewHTTPFetcher(registry.NewResolver(runner), registry.NewFetcher(runner),
+		cfg.MaxRequests, timeout)
+	cache := registry.NewCache(fetcher, registry.CacheOptions{
+		Path: filepath.Join(filepath.Dir(cfgPath), registryCacheFile),
+		TTL:  cfg.CacheTTLDuration(),
+	})
+	defer func() { _ = cache.Flush() }()
+	sc := scanner.New(runner, cache)
 
-	if err := sc.Preflight(ctx); err != nil {
-		return err
-	}
-
-	auditor := func(ctx context.Context, dir string, pm detect.PackageManager) audit.Result {
+	auditStore := memo.New[audit.Result](memo.Options{
+		Path: filepath.Join(filepath.Dir(cfgPath), auditCacheFile),
+		TTL:  cfg.CacheTTLDuration(),
+	})
+	defer func() { _ = auditStore.Flush() }()
+	auditor := audit.Cached(auditStore, func(ctx context.Context, dir string, pm detect.PackageManager) audit.Result {
 		return audit.Run(ctx, runner, dir, pm)
-	}
-	deps := orchestrator.Deps{Scanner: sc, Auditor: auditor, Discoverer: orchestrator.DiscoverRepos}
+	})
+	deps := orchestrator.Deps{Scanner: sc, Auditor: orchestrator.Auditor(auditor), Discoverer: orchestrator.DiscoverRepos}
 	return ui.New(ctx, cfg, cfgPath, deps, firstRun, intent).Run()
 }
 

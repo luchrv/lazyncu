@@ -4,7 +4,7 @@ export const es: Dictionary = {
   meta: {
     title: 'lazyncu — dashboard de terminal para actualizaciones npm',
     description:
-      'Un dashboard de terminal de solo lectura para npm-check-updates. Mira de un vistazo qué proyectos necesitan actualizaciones y qué tan urgentes son.',
+      'Un dashboard de terminal de solo lectura para dependencias npm desactualizadas. Mira de un vistazo qué proyectos necesitan actualizaciones y qué tan urgentes son.',
   },
   nav: {
     github: 'GitHub',
@@ -15,7 +15,7 @@ export const es: Dictionary = {
   hero: {
     tagline: '¿Cuáles de mis proyectos necesitan actualizaciones, y qué tan urgentes son?',
     subtitle:
-      'lazyncu es un dashboard de terminal de solo lectura para npm-check-updates: escanea tus paquetes globales y cada proyecto registrado en paralelo, y responde esa pregunta de un vistazo.',
+      'lazyncu es un dashboard de terminal de solo lectura para dependencias npm desactualizadas: escanea tus paquetes globales y cada proyecto registrado en paralelo, y responde esa pregunta de un vistazo.',
     ctaInstall: 'Instalar',
     ctaGithub: 'Ver en GitHub',
     videoFallback: 'Tu navegador no soporta videos embebidos.',
@@ -37,7 +37,7 @@ export const es: Dictionary = {
       {
         title: 'Vulnerabilidades, con la cadena que las arrastra',
         description:
-          'npm audit / pnpm audit corren junto al escaneo de versiones: contadores por severidad, detalle del paquete vulnerable y la cadena de dependencias detrás de cada hallazgo.',
+          'npm audit / pnpm audit corren después del escaneo de versiones, en segundo plano y desde el lockfile, sin retrasar los resultados de versiones: contadores por severidad, detalle del paquete vulnerable y la cadena de dependencias detrás de cada hallazgo.',
         demo: 'vulns',
       },
       {
@@ -54,7 +54,7 @@ export const es: Dictionary = {
     copiedLabel: '¡Copiado!',
     methods: [
       {
-        label: 'Homebrew (macOS/Linux) — instala npm-check-updates automáticamente',
+        label: 'Homebrew (macOS/Linux)',
         command: 'brew install luchrv/tap/lazyncu',
       },
       {
@@ -69,6 +69,6 @@ export const es: Dictionary = {
   },
   footer: {
     license: 'Licencia MIT',
-    madeWith: 'Hecho con Go, Bubble Tea y npm-check-updates.',
+    madeWith: 'Hecho con Go y tview.',
   },
 };

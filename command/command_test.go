@@ -17,9 +17,9 @@ func TestGlobalUpdate(t *testing.T) {
 			name: "multiple packages keep order",
 			pkgs: []scanner.Package{
 				{Name: "typescript", New: "5.6.2"},
-				{Name: "npm-check-updates", New: "18.1.0"},
+				{Name: "eslint", New: "9.1.0"},
 			},
-			want: "npm install -g typescript@5.6.2 npm-check-updates@18.1.0",
+			want: "npm install -g typescript@5.6.2 eslint@9.1.0",
 		},
 		{
 			name: "single package",
@@ -35,11 +35,7 @@ func TestGlobalUpdate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Act
-			got := GlobalUpdate(tt.pkgs)
-
-			// Assert
-			if got != tt.want {
+			if got := GlobalUpdate(tt.pkgs); got != tt.want {
 				t.Errorf("GlobalUpdate() = %q, want %q", got, tt.want)
 			}
 		})
@@ -47,25 +43,24 @@ func TestGlobalUpdate(t *testing.T) {
 }
 
 func TestProjectUpdate(t *testing.T) {
+	lodash := scanner.Package{Name: "lodash", Current: "^4.17.20", New: "4.17.21"}
 	tests := []struct {
 		name string
 		dir  string
 		pm   detect.PackageManager
+		pkgs []scanner.Package
 		want string
 	}{
-		{"npm project", "/p/api", detect.Npm, "cd /p/api && ncu -u && npm install"},
-		{"pnpm project", "/p/web", detect.Pnpm, "cd /p/web && ncu -u && pnpm install"},
-		{"yarn project", "/p/cli", detect.Yarn, "cd /p/cli && ncu -u && yarn"},
-		{"unknown pm defaults to npm", "/p/x", detect.PackageManager("weird"), "cd /p/x && ncu -u && npm install"},
+		{"npm project", "/p/api", detect.Npm, []scanner.Package{lodash}, "cd /p/api && npm install lodash@4.17.21"},
+		{"pnpm project", "/p/web", detect.Pnpm, []scanner.Package{lodash}, "cd /p/web && pnpm add lodash@4.17.21"},
+		{"yarn project", "/p/cli", detect.Yarn, []scanner.Package{lodash}, "cd /p/cli && yarn add lodash@4.17.21"},
+		{"unknown pm defaults to npm", "/p/x", detect.PackageManager("weird"), []scanner.Package{lodash}, "cd /p/x && npm install lodash@4.17.21"},
+		{"no packages yields empty command", "/p/x", detect.Npm, nil, ""},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Act
-			got := ProjectUpdate(tt.dir, tt.pm)
-
-			// Assert
-			if got != tt.want {
+			if got := ProjectUpdate(tt.dir, tt.pm, tt.pkgs); got != tt.want {
 				t.Errorf("ProjectUpdate() = %q, want %q", got, tt.want)
 			}
 		})

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	toml "github.com/pelletier/go-toml/v2"
 )
@@ -16,9 +17,17 @@ import (
 // DefaultTimeoutMS is the scan timeout used when the config file sets none.
 const DefaultTimeoutMS = 30000
 
-// DefaultMaxParallel bounds concurrent external commands (ncu, npm ls, npm
-// audit) across all sources when the config file sets no max_parallel.
+// DefaultMaxParallel bounds concurrent external commands (npm view, npm ls,
+// npm audit) across all sources when the config file sets no max_parallel.
 const DefaultMaxParallel = 4
+
+// DefaultMaxRequests bounds concurrent registry HTTP requests when the
+// config file sets no max_requests.
+const DefaultMaxRequests = 32
+
+// DefaultCacheTTL is the registry cache lifetime when the config file sets
+// no cache_ttl.
+const DefaultCacheTTL = "1h"
 
 const (
 	// appDirName is the config directory name. The app was renamed from
@@ -37,9 +46,19 @@ type Path struct {
 // Config is the full persisted configuration. Update methods return new
 // values and never mutate the receiver.
 type Config struct {
-	TimeoutMS   int    `toml:"timeout_ms,omitempty"`
-	MaxParallel int    `toml:"max_parallel,omitempty"`
-	Paths       []Path `toml:"paths,omitempty"`
+	TimeoutMS   int `toml:"timeout_ms,omitempty"`
+	MaxParallel int `toml:"max_parallel,omitempty"`
+	MaxRequests int `toml:"max_requests,omitempty"`
+	// CacheTTL is a Go duration ("1h", "30m"); "0" disables the on-disk
+	// registry cache.
+	CacheTTL string `toml:"cache_ttl,omitempty"`
+	Paths    []Path `toml:"paths,omitempty"`
+}
+
+// CacheTTLDuration parses CacheTTL; Load guarantees it is valid.
+func (c Config) CacheTTLDuration() time.Duration {
+	d, _ := time.ParseDuration(c.CacheTTL)
+	return d
 }
 
 // FilePath resolves the config file location: $XDG_CONFIG_HOME/lazyncu/config.toml,
@@ -61,7 +80,8 @@ func FilePath() (string, error) {
 func Load(path string) (cfg Config, created bool, err error) {
 	data, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
-		cfg = Config{TimeoutMS: DefaultTimeoutMS, MaxParallel: DefaultMaxParallel}
+		cfg = Config{TimeoutMS: DefaultTimeoutMS, MaxParallel: DefaultMaxParallel,
+			MaxRequests: DefaultMaxRequests, CacheTTL: DefaultCacheTTL}
 		if saveErr := Save(path, cfg); saveErr != nil {
 			return Config{}, false, fmt.Errorf("creating config file %s: %w", path, saveErr)
 		}
@@ -74,17 +94,28 @@ func Load(path string) (cfg Config, created bool, err error) {
 	if err := toml.Unmarshal(data, &cfg); err != nil {
 		return Config{}, false, fmt.Errorf("parsing config file %s: %w", path, err)
 	}
-	return applyDefaults(cfg), false, nil
+	cfg = applyDefaults(cfg)
+	if _, err := time.ParseDuration(cfg.CacheTTL); err != nil {
+		return Config{}, false, fmt.Errorf("parsing config file %s: cache_ttl %q is not a duration (use \"1h\", \"30m\" or \"0\")", path, cfg.CacheTTL)
+	}
+	return cfg, false, nil
 }
 
-// applyDefaults fills unset or invalid scan settings: a zero timeout and a
-// max_parallel below 1 both fall back to their defaults.
+// applyDefaults fills unset or invalid scan settings: a zero timeout, a
+// max_parallel or max_requests below 1 and an empty cache_ttl all fall back
+// to their defaults.
 func applyDefaults(cfg Config) Config {
 	if cfg.TimeoutMS == 0 {
 		cfg.TimeoutMS = DefaultTimeoutMS
 	}
 	if cfg.MaxParallel < 1 {
 		cfg.MaxParallel = DefaultMaxParallel
+	}
+	if cfg.MaxRequests < 1 {
+		cfg.MaxRequests = DefaultMaxRequests
+	}
+	if cfg.CacheTTL == "" {
+		cfg.CacheTTL = DefaultCacheTTL
 	}
 	return cfg
 }

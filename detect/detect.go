@@ -18,7 +18,8 @@ type Mode string
 const (
 	// ModeSingle scans one package.json with plain `ncu`.
 	ModeSingle Mode = "single"
-	// ModeDeep scans a workspaces monorepo recursively with `ncu --deep`.
+	// ModeDeep scans a workspaces monorepo: every package.json under the
+	// path is discovered and scanned on its own.
 	ModeDeep Mode = "deep"
 	// ModeFolder marks a folder of repositories: lazyncu discovers each
 	// repository (see Repos) and scans it on its own.

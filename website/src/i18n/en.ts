@@ -4,7 +4,7 @@ export const en: Dictionary = {
   meta: {
     title: 'lazyncu — terminal dashboard for npm updates',
     description:
-      'A read-only terminal dashboard for npm-check-updates. See which of your projects need updates — and how urgent they are — at a glance.',
+      'A read-only terminal dashboard for outdated npm dependencies. See which of your projects need updates — and how urgent they are — at a glance.',
   },
   nav: {
     github: 'GitHub',
@@ -15,7 +15,7 @@ export const en: Dictionary = {
   hero: {
     tagline: 'Which of my projects need updates, and how urgent are they?',
     subtitle:
-      'lazyncu is a read-only terminal dashboard for npm-check-updates: it scans your global packages and every registered project in parallel, and answers that question at a glance.',
+      'lazyncu is a read-only terminal dashboard for outdated npm dependencies: it scans your global packages and every registered project in parallel, and answers that question at a glance.',
     ctaInstall: 'Install',
     ctaGithub: 'View on GitHub',
     videoFallback: 'Your browser does not support embedded videos.',
@@ -37,7 +37,7 @@ export const en: Dictionary = {
       {
         title: 'Vulnerabilities, with the chain that drags them in',
         description:
-          'npm audit / pnpm audit run alongside the version scan: severity counters, vulnerable-package detail, and the dependency chain behind each finding.',
+          'npm audit / pnpm audit run after the version scans, in the background and from the lockfile, never delaying the version results: severity counters, vulnerable-package detail, and the dependency chain behind each finding.',
         demo: 'vulns',
       },
       {
@@ -54,7 +54,7 @@ export const en: Dictionary = {
     copiedLabel: 'Copied!',
     methods: [
       {
-        label: 'Homebrew (macOS/Linux) — installs npm-check-updates automatically',
+        label: 'Homebrew (macOS/Linux)',
         command: 'brew install luchrv/tap/lazyncu',
       },
       {
@@ -69,6 +69,6 @@ export const en: Dictionary = {
   },
   footer: {
     license: 'MIT License',
-    madeWith: 'Built with Go, Bubble Tea, and npm-check-updates.',
+    madeWith: 'Built with Go and tview.',
   },
 };

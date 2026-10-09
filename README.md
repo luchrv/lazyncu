@@ -6,28 +6,28 @@
 [![Downloads](https://img.shields.io/github/downloads/luchrv/lazyncu/total)](https://github.com/luchrv/lazyncu/releases)
 [![Homebrew](https://img.shields.io/badge/homebrew-luchrv%2Ftap-orange)](https://github.com/luchrv/homebrew-tap)
 
-A read-only terminal dashboard for [npm-check-updates](https://github.com/raineorshine/npm-check-updates). It answers one question at a glance: **which of my projects need updates, and how urgent are they?**
+A read-only terminal dashboard for outdated npm dependencies. It answers one question at a glance: **which of my projects need updates, and how urgent are they?**
 
 **Website:** [luchrv.github.io/lazyncu](https://luchrv.github.io/lazyncu/) (also [en español](https://luchrv.github.io/lazyncu/es/))
 
 ![lazyncu demo](assets/demo/hero.gif)
 
-- Scans **global packages** (`ncu -g`) and every **registered path** in parallel on launch.
-- Auto-detects what each path is — single project, monorepo, or folder of projects — and picks `ncu` or `ncu --deep` accordingly. Zero per-path configuration.
+- Scans **global packages** and every **registered path** in parallel on launch.
+- Auto-detects what each path is — single project, monorepo, or folder of projects — and scans it accordingly (one `package.json`, every manifest in a monorepo, or each repository in a folder). Zero per-path configuration.
 - Classifies every upgrade as **major / minor / patch** with color coding and per-project counters.
 - Respects each project's **`engines.node`**: suggestions are limited to versions the project can actually install, and the detail panel shows the project's declared node version (`.nvmrc` or `engines.node`).
-- Runs **`npm audit` / `pnpm audit`** per project alongside the version scan: severity counters (critical/high/moderate/low), vulnerable-package detail, and the dependency chain that drags each vulnerability in (`lodash ← express`).
+- Runs **`npm audit` / `pnpm audit`** after the version scans, in the background, from the lockfile (the selected project goes first; results are cached by lockfile hash): severity counters (critical/high/moderate/low), vulnerable-package detail, and the dependency chain that drags each vulnerability in (`lodash ← express`).
 - **Never modifies anything.** It shows the exact update/fix command for the current selection and copies it to your clipboard.
 
 ## Requirements
 
-- [npm-check-updates](https://github.com/raineorshine/npm-check-updates) >= 18 on PATH. The Homebrew install brings it in automatically; with a prebuilt binary, `go install`, or a source build, install it yourself: `npm install -g npm-check-updates`
-- `npm` (and `pnpm` if you want pnpm projects audited)
-- Network access (ncu queries the npm registry; audit queries the advisory endpoint)
+- `npm` on PATH — its configuration (`.npmrc` files, `npm_config_*`) selects the registry, including private and scoped registries and their credentials; `npm view` is the fallback transport
+- `pnpm` if you want pnpm projects audited
+- Network access (the scan queries the npm registry; audit queries the advisory endpoint)
 
 ## Install
 
-Homebrew (macOS/Linux) — installs npm-check-updates as a dependency, no extra step:
+Homebrew (macOS/Linux):
 
 ```sh
 brew install luchrv/tap/lazyncu
@@ -122,10 +122,10 @@ Mark packages with `Space` to narrow the update command to just those:
 | Context | Command |
 |---------|---------|
 | Global packages | `npm install -g pkg@x.y.z ...` |
-| Marked packages only | `cd <dir> && ncu -u pkg1 pkg2 && npm install` (or the global subset) |
-| npm project | `cd <dir> && ncu -u && npm install` |
-| pnpm project | `cd <dir> && ncu -u && pnpm install` |
-| yarn project | `cd <dir> && ncu -u && yarn` |
+| Marked packages only | `cd <dir> && npm install pkg1@x.y.z pkg2@x.y.z` (or the global subset) |
+| npm project | `cd <dir> && npm install pkg@x.y.z ...` |
+| pnpm project | `cd <dir> && pnpm add pkg@x.y.z ...` |
+| yarn project | `cd <dir> && yarn add pkg@x.y.z ...` |
 | Vulnerabilities (npm) | `cd <dir> && npm audit fix` |
 | Vulnerabilities (pnpm) | `cd <dir> && pnpm audit --fix` |
 
@@ -138,27 +138,33 @@ Mark packages with `Space` to narrow the update command to just those:
 > **Renamed from ncu-tui:** an existing `~/.config/ncu-tui/` is ignored — no migration. Re-add your paths with `a` (or copy the old `config.toml` into the new directory yourself).
 
 ```toml
-timeout_ms = 30000   # per-command timeout (default 30000)
-max_parallel = 4     # concurrent ncu/npm processes across all sources (default 4)
+timeout_ms = 30000   # per-command and per-request timeout (default 30000)
+max_parallel = 4     # concurrent npm processes across all sources (default 4)
+max_requests = 32    # concurrent registry HTTP requests (default 32)
+cache_ttl = "1h"     # reuse registry metadata and audit results across launches for this long; "0" disables (default "1h")
 
 [[paths]]
 path = "/Users/me/projects"        # folder of repositories → one scan per repository
 
 [[paths]]
-path = "/Users/me/projects/my-app" # single project → ncu
+path = "/Users/me/projects/my-app" # single project
 ```
+
+Registry metadata is cached in `registry-cache.json` and audit results in `audit-cache.json` (keyed by lockfile hash) next to the config file, both reused for `cache_ttl`; `r` / `R` always fetch fresh data. Credentials are never written to either cache.
 
 How a path is scanned is re-detected on every launch:
 
 | Path contents | Mode |
 |---------------|------|
 | No `package.json` | Folder of repositories: each repository is discovered and scanned on its own |
-| `package.json` with `workspaces`, or `pnpm-workspace.yaml` | `ncu --deep` (monorepo) |
-| Plain `package.json` | `ncu` |
+| `package.json` with `workspaces`, or `pnpm-workspace.yaml` | Monorepo: every `package.json` under the path |
+| Plain `package.json` | Single project |
 
 A folder is walked to any depth until a `package.json` is found (that directory is one repository); `node_modules` and dot-directories are skipped. Symbolic links to directories are followed, each repository is listed once even when reachable through several links, and link cycles are cut. Repositories inside a folder appear as they finish, each with its own timeout, so one slow or broken repository never hides the others — select it and press `r` to retry just that one.
 
 ## Audit coverage notes
+
+Audits run after the version scans, in the background and in panel order, so the version results never wait for them; the project you select is audited first. npm projects are audited from the lockfile (`npm audit --package-lock-only`), so they do not need to be installed. An entry shows `audit pending` until its turn and `auditing…` while it runs.
 
 Press `v` on a project to see its vulnerabilities: severity, affected range, whether a fix exists, and the dependency chain that drags each one in.
 
@@ -179,7 +185,7 @@ make release-check  # dry-run the goreleaser pipeline locally (needs goreleaser)
 Releases are automated: pushing a `v*` tag runs goreleaser via GitHub Actions.
 See [docs/RELEASING.md](docs/RELEASING.md).
 
-Business logic lives in pure, exec-injected packages (`config`, `detect`, `scanner`, `semver`, `command`, `audit`, `orchestrator`, `launch`); the `ui` package is a thin tview layer where every async widget update passes through a single `QueueUpdateDraw` choke point.
+Business logic lives in pure, exec-injected packages (`config`, `detect`, `scanner`, `registry`, `ncurc`, `semver`, `command`, `audit`, `orchestrator`, `launch`); the `ui` package is a thin tview layer where every async widget update passes through a single `QueueUpdateDraw` choke point.
 
 ## License
 

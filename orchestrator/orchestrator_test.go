@@ -146,37 +146,32 @@ func TestScanErrorIsIsolatedPerSource(t *testing.T) {
 	}
 }
 
-func TestAuditRunsPerProjectAndFailureKeepsScanResult(t *testing.T) {
-	// Arrange: two projects under one path; audits fail
+func TestScanDefersAuditsAndNeverRunsAuditor(t *testing.T) {
+	// Arrange: an npm project and a yarn project under one path
 	sc := &fakeScanner{
 		pathRes: map[string][]scanner.Project{
 			"/p/repo": {
 				{Dir: "/p/repo/api", Label: "api", PM: detect.Npm,
 					Packages: []scanner.Package{{Name: "express", Current: "4.18.0", New: "5.1.0"}}},
-				{Dir: "/p/repo/web", Label: "web", PM: detect.Npm},
+				{Dir: "/p/repo/web", Label: "web", PM: detect.Yarn},
 			},
 		},
 	}
 	audited := make(chan string, 2)
-	failingAuditor := func(ctx context.Context, dir string, pm detect.PackageManager) audit.Result {
+	spyAuditor := func(ctx context.Context, dir string, pm detect.PackageManager) audit.Result {
 		audited <- dir
-		return audit.Result{Status: audit.StatusFailed, Err: "audit exploded"}
+		return audit.Result{Status: audit.StatusOK}
 	}
 
 	// Act
-	events := Run(context.Background(), Deps{Scanner: sc, Auditor: failingAuditor}, []string{"/p/repo"})
+	events := Run(context.Background(), Deps{Scanner: sc, Auditor: spyAuditor}, []string{"/p/repo"})
 	got := collect(t, events, 2)
 
-	// Assert: both projects audited
+	// Assert: the scan ran no audit
 	close(audited)
-	auditedDirs := map[string]bool{}
-	for dir := range audited {
-		auditedDirs[dir] = true
+	if dir, ok := <-audited; ok {
+		t.Errorf("auditor ran for %s during the scan, want deferred", dir)
 	}
-	if !auditedDirs["/p/repo/api"] || !auditedDirs["/p/repo/web"] {
-		t.Errorf("audited dirs = %v, want both projects", auditedDirs)
-	}
-	// Assert: scan results intact despite audit failure
 	var repo Event
 	for _, ev := range got {
 		if ev.Source == "/p/repo" {
@@ -184,15 +179,41 @@ func TestAuditRunsPerProjectAndFailureKeepsScanResult(t *testing.T) {
 		}
 	}
 	if repo.Err != nil {
-		t.Fatalf("source Err = %v, audit failure must not fail the source", repo.Err)
+		t.Fatalf("source Err = %v", repo.Err)
 	}
 	for _, p := range repo.Projects {
-		if p.Audit.Status != audit.StatusFailed {
-			t.Errorf("project %s audit status = %v, want StatusFailed", p.Label, p.Audit.Status)
+		want := audit.StatusPending
+		if p.PM == detect.Yarn {
+			want = audit.StatusNotAvailable
+		}
+		if p.Audit.Status != want {
+			t.Errorf("project %s audit status = %v, want %v", p.Label, p.Audit.Status, want)
 		}
 		if p.Label == "api" && len(p.Packages) != 1 {
 			t.Errorf("api packages lost: %+v", p.Packages)
 		}
+	}
+}
+
+func TestAuditProjectRunsAuditorOnDemand(t *testing.T) {
+	// Arrange
+	pr := ProjectResult{Project: scanner.Project{Dir: "/p/repo/api", PM: detect.Npm}}
+	var auditedDir string
+	failingAuditor := func(ctx context.Context, dir string, pm detect.PackageManager) audit.Result {
+		auditedDir = dir
+		return audit.Result{Status: audit.StatusFailed, Err: "audit exploded"}
+	}
+
+	// Act
+	got := AuditProject(context.Background(), Deps{Auditor: failingAuditor}, pr)
+	none := AuditProject(context.Background(), Deps{}, pr)
+
+	// Assert
+	if auditedDir != "/p/repo/api" || got.Status != audit.StatusFailed {
+		t.Errorf("AuditProject() = %+v audited %q, want the auditor's failure for the project dir", got, auditedDir)
+	}
+	if none.Status != audit.StatusNotAvailable {
+		t.Errorf("AuditProject() without auditor = %v, want StatusNotAvailable", none.Status)
 	}
 }
 
@@ -311,8 +332,8 @@ func TestFolderAnnouncesPendingEntriesBeforeAnyResult(t *testing.T) {
 	if !third.Done || third.Projects[0].Pending || third.Projects[1].Pending {
 		t.Errorf("third snapshot = %+v, want both resolved and Done", third.Projects)
 	}
-	if third.Projects[0].PM != detect.Npm || third.Projects[0].Audit.Status != audit.StatusOK {
-		t.Errorf("api entry = %+v, want scanned and audited", third.Projects[0])
+	if third.Projects[0].PM != detect.Npm || third.Projects[0].Audit.Status != audit.StatusPending {
+		t.Errorf("api entry = %+v, want scanned with a pending audit", third.Projects[0])
 	}
 	if _, open := <-events; open {
 		t.Error("channel still open after the folder's final snapshot")
@@ -367,7 +388,7 @@ func TestFolderOneFailingRepositoryDoesNotFailTheSource(t *testing.T) {
 	if final.Projects[0].Err == nil || final.Projects[0].Label != "bad" || final.Projects[0].Pending {
 		t.Errorf("bad entry = %+v, want its own error", final.Projects[0])
 	}
-	if final.Projects[1].Err != nil || final.Projects[1].Audit.Status != audit.StatusOK {
+	if final.Projects[1].Err != nil || final.Projects[1].Audit.Status == audit.StatusFailed {
 		t.Errorf("ok entry = %+v, want healthy result", final.Projects[1])
 	}
 }
@@ -446,8 +467,8 @@ func TestScanProjectCoversSuccessFailureAndEmptyScan(t *testing.T) {
 	empty := ScanProject(context.Background(), deps, repo("/hub/empty", "empty"))
 
 	// Assert
-	if len(ok) != 1 || ok[0].Label != "ok" || ok[0].PM != detect.Pnpm || ok[0].Audit.Status != audit.StatusOK {
-		t.Errorf("ok = %+v, want one audited entry labeled ok", ok)
+	if len(ok) != 1 || ok[0].Label != "ok" || ok[0].PM != detect.Pnpm || ok[0].Audit.Status != audit.StatusPending {
+		t.Errorf("ok = %+v, want one entry labeled ok with a pending audit", ok)
 	}
 	if len(bad) != 1 || bad[0].Err == nil || bad[0].Label != "bad" || bad[0].Dir != "/hub/bad" {
 		t.Errorf("bad = %+v, want one failed entry keeping dir and label", bad)

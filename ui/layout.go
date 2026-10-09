@@ -27,6 +27,7 @@ func (a *App) buildLayout() {
 			a.sel = ref
 			a.refreshDetail()
 			a.refreshCommandBar()
+			a.ensureAudit()
 		}
 	})
 	// Enter on a source node folds/unfolds its project list.
